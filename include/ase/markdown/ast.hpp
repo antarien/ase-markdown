@@ -1,7 +1,9 @@
 #pragma once
 
 #include <ase/markdown/types.hpp>
+#include <ase/alloc/arena.hpp>
 #include <cstdint>
+#include <cstdlib>
 
 namespace ase::markdown {
 
@@ -63,13 +65,47 @@ struct Frontmatter {
     uint8_t curated         = 0;
 };
 
-// Document — owns all memory (arena-based allocation)
+// Default arena size: 1MB (sufficient for large documents)
+constexpr uint32_t DOCUMENT_ARENA_SIZE = 1024 * 1024;
+
+// Document — owns buffer + arena for all nodes and strings
 struct Document {
     Node* root              = nullptr;
     Frontmatter frontmatter = {};
 
-    // Arena for all strings and nodes (freed in free_document)
-    void* arena             = nullptr;
+    // Owned buffer + arena (ase::alloc::Arena from L0 ase-alloc)
+    char* buffer            = nullptr;
+    uint32_t buffer_size    = 0;
+    ase::alloc::Arena* arena = nullptr;
 };
+
+// Helper: allocate a Node from the document arena (zero-initialized)
+inline Node* alloc_node(Document& doc, uint8_t type) {
+    auto* node = static_cast<Node*>(doc.arena->allocate_zeroed(sizeof(Node)));
+    if (node) node->type = type;
+    return node;
+}
+
+// Helper: duplicate a string into the document arena
+inline char* alloc_string(Document& doc, const char* str, uint32_t len) {
+    if (!str || len == 0) return nullptr;
+    auto* copy = static_cast<char*>(doc.arena->allocate(len + 1));
+    if (!copy) return nullptr;
+    for (uint32_t i = 0; i < len; ++i) copy[i] = str[i];
+    copy[len] = '\0';
+    return copy;
+}
+
+// Helper: append child node to parent
+inline void append_child(Node* parent, Node* child) {
+    child->parent = parent;
+    if (!parent->first_child) {
+        parent->first_child = child;
+    } else {
+        Node* last = parent->first_child;
+        while (last->next_sibling) last = last->next_sibling;
+        last->next_sibling = child;
+    }
+}
 
 }  // namespace ase::markdown
