@@ -17,8 +17,7 @@ std::string read_fixture(const char* name) {
         "tests/compliance/",
         "../tests/compliance/",
         "../../tests/compliance/",
-        "core/ase-markdown/tests/compliance/",
-        "core/core/ase-markdown/tests/compliance/"
+        "core/ase-markdown/tests/compliance/"
     };
     for (const char* dir : dirs) {
         std::string path = std::string(dir) + name;
