@@ -54,11 +54,27 @@ configure_file(
 message(STATUS "Configuring ${PROJECT_NAME} v${PROJECT_VERSION}")
 
 #[[
+EXTERNAL DEPENDENCIES
+cmark-gfm: CommonMark + GFM parser (C library, FetchContent cached in build/_deps/)
+]]
+if(NOT TARGET libcmark-gfm-static)
+    include(FetchContent)
+    FetchContent_Declare(cmark_gfm
+        GIT_REPOSITORY https://github.com/github/cmark-gfm.git
+        GIT_TAG 0.29.0.gfm.13
+        GIT_SHALLOW TRUE
+    )
+    set(CMARK_TESTS OFF CACHE BOOL "" FORCE)
+    set(CMARK_SHARED OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(cmark_gfm)
+endif()
+
+#[[
 LIBRARY DEFINITION
 ]]
 add_library(${PROJECT_NAME} STATIC
     # Sources
-    src/markdown_stub.cpp
+    src/markdown_prs_base.cpp
 
     # Headers (for IDE integration)
     include/ase/markdown/markdown.hpp
@@ -76,10 +92,13 @@ target_include_directories(${PROJECT_NAME}
 
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
 
-# Layer 0 dependencies
+# Layer 0 + external dependencies
 target_link_libraries(${PROJECT_NAME}
     PUBLIC
         ase::alloc
+    PRIVATE
+        libcmark-gfm-static
+        libcmark-gfm-extensions-static
 )
 
 #[[ VERBOTEN: No Layer 3+ dependencies ]]
