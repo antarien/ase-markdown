@@ -76,6 +76,9 @@ add_library(${PROJECT_NAME} STATIC
     # Sources
     src/markdown_prs_base.cpp
     src/markdown_prs_fmtr.cpp
+    src/markdown_prs_clot.cpp
+    src/markdown_prs_math.cpp
+    src/markdown_prs_nfnt.cpp
 
     # Headers (for IDE integration)
     include/ase/markdown/markdown.hpp

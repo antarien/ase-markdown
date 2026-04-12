@@ -160,6 +160,11 @@ Document parse(const char* input, uint32_t len, ParseOptions opts) {
     cmark_node_free(cmark_root);
     cmark_parser_free(parser);
 
+    // Post-processing passes (ASE extensions)
+    pass_callouts(doc);
+    pass_math(doc);
+    pass_icons(doc);
+
     return doc;
 }
 
