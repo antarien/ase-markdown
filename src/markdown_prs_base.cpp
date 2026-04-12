@@ -160,10 +160,16 @@ Document parse(const char* input, uint32_t len, ParseOptions opts) {
     cmark_node_free(cmark_root);
     cmark_parser_free(parser);
 
-    // Post-processing passes (ASE extensions)
+    // Post-processing passes (ASE extensions — both TECH and DSGN)
     pass_callouts(doc);
     pass_math(doc);
     pass_icons(doc);
+
+    // DSGN-only passes (directives, inline extensions)
+    if (opts.mode == MODE_DSGN) {
+        pass_directives(doc);
+        pass_inline_extensions(doc);
+    }
 
     return doc;
 }

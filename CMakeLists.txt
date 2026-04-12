@@ -79,6 +79,7 @@ add_library(${PROJECT_NAME} STATIC
     src/markdown_prs_clot.cpp
     src/markdown_prs_math.cpp
     src/markdown_prs_nfnt.cpp
+    src/markdown_prs_drct.cpp
 
     # Headers (for IDE integration)
     include/ase/markdown/markdown.hpp
