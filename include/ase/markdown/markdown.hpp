@@ -36,5 +36,7 @@ void free_document(Document& doc);
 void pass_callouts(Document& doc);
 void pass_icons(Document& doc);
 void pass_math(Document& doc);
+void pass_directives(Document& doc);
+void pass_inline_extensions(Document& doc);
 
 }  // namespace ase::markdown
