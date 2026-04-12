@@ -57,7 +57,7 @@ message(STATUS "Configuring ${PROJECT_NAME} v${PROJECT_VERSION}")
 EXTERNAL DEPENDENCIES
 cmark-gfm: CommonMark + GFM parser (C library, FetchContent cached in build/_deps/)
 ]]
-if(NOT TARGET libcmark-gfm-static)
+if(NOT TARGET libcmark-gfm_static)
     include(FetchContent)
     FetchContent_Declare(cmark_gfm
         GIT_REPOSITORY https://github.com/github/cmark-gfm.git
@@ -98,13 +98,23 @@ target_include_directories(${PROJECT_NAME}
 
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
 
+# cmark-gfm uses old-style include_directories() (directory-scoped, not target-scoped).
+# Headers are not propagated to downstream targets via target_link_libraries.
+# Add include paths directly to ase-markdown so source files find cmark-gfm.h
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${cmark_gfm_SOURCE_DIR}/src
+    ${cmark_gfm_BINARY_DIR}/src
+    ${cmark_gfm_SOURCE_DIR}/extensions
+    ${cmark_gfm_BINARY_DIR}/extensions
+)
+
 # Layer 0 + external dependencies
 target_link_libraries(${PROJECT_NAME}
     PUBLIC
         ase::alloc
     PRIVATE
-        libcmark-gfm-static
-        libcmark-gfm-extensions-static
+        libcmark-gfm_static
+        libcmark-gfm-extensions_static
 )
 
 #[[ VERBOTEN: No Layer 3+ dependencies ]]
