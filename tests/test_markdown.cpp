@@ -243,3 +243,83 @@ TEST_CASE("frontmatter: order parsed as integer") {
 
     free_document(doc);
 }
+
+TEST_CASE("pass_callouts: INFO callout detected") {
+    const char* input = "> [!INFO]\n> This is important.";
+    auto doc = parse(input, static_cast<uint32_t>(std::strlen(input)));
+
+    auto* callout = doc.root->first_child;
+    CHECK(callout != nullptr);
+    CHECK(callout->type == NODE_CALLOUT);
+    CHECK(callout->callout_type == CALLOUT_INFO);
+
+    free_document(doc);
+}
+
+TEST_CASE("pass_callouts: WARNING callout detected") {
+    const char* input = "> [!WARNING]\n> Do not do this.";
+    auto doc = parse(input, static_cast<uint32_t>(std::strlen(input)));
+
+    auto* callout = doc.root->first_child;
+    CHECK(callout != nullptr);
+    CHECK(callout->type == NODE_CALLOUT);
+    CHECK(callout->callout_type == CALLOUT_WARNING);
+
+    free_document(doc);
+}
+
+TEST_CASE("pass_callouts: normal blockquote unchanged") {
+    const char* input = "> Just a regular quote.";
+    auto doc = parse(input, static_cast<uint32_t>(std::strlen(input)));
+
+    auto* bq = doc.root->first_child;
+    CHECK(bq != nullptr);
+    CHECK(bq->type == NODE_BLOCKQUOTE);
+
+    free_document(doc);
+}
+
+TEST_CASE("pass_math: inline math detected") {
+    const char* input = "The formula $E=mc^2$ is famous.";
+    auto doc = parse(input, static_cast<uint32_t>(std::strlen(input)));
+
+    // Walk paragraph children looking for math node
+    auto* para = doc.root->first_child;
+    CHECK(para != nullptr);
+    bool found_math = false;
+    Node* child = para->first_child;
+    while (child) {
+        if (child->type == NODE_MATH_INLINE) {
+            found_math = true;
+            CHECK(child->text != nullptr);
+            CHECK(std::strcmp(child->text, "E=mc^2") == 0);
+        }
+        child = child->next_sibling;
+    }
+    CHECK(found_math);
+
+    free_document(doc);
+}
+
+TEST_CASE("pass_icons: NerdFont icon detected") {
+    const char* input = "## (nf-fa-cube) Architecture";
+    auto doc = parse(input, static_cast<uint32_t>(std::strlen(input)));
+
+    auto* heading = doc.root->first_child;
+    CHECK(heading != nullptr);
+    CHECK(heading->type == NODE_HEADING);
+
+    bool found_icon = false;
+    Node* child = heading->first_child;
+    while (child) {
+        if (child->type == NODE_NERDFONT_ICON) {
+            found_icon = true;
+            CHECK(child->text != nullptr);
+            CHECK(std::strcmp(child->text, "nf-fa-cube") == 0);
+        }
+        child = child->next_sibling;
+    }
+    CHECK(found_icon);
+
+    free_document(doc);
+}

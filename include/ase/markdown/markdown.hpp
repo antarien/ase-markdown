@@ -32,4 +32,9 @@ Document parse(const char* input, uint32_t len, ParseOptions opts = {});
 // Free all memory owned by a Document (nodes, strings, arena).
 void free_document(Document& doc);
 
+// Post-processing passes (called by parse(), also available individually)
+void pass_callouts(Document& doc);
+void pass_icons(Document& doc);
+void pass_math(Document& doc);
+
 }  // namespace ase::markdown
