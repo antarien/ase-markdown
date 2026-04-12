@@ -114,6 +114,31 @@ if(ASE_BUILD_TESTS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests")
     add_subdirectory(tests)
 endif()
 
+#[[
+WASM BUILD TARGET (Emscripten)
+Build with: emcmake cmake -B build-wasm && cmake --build build-wasm
+Produces: ase-markdown.wasm + ase-markdown.js
+]]
+if(EMSCRIPTEN)
+    add_executable(ase-markdown-wasm
+        src/wasm/markdown_wasm.cpp
+    )
+    target_link_libraries(ase-markdown-wasm PRIVATE ${PROJECT_NAME})
+    set_target_properties(ase-markdown-wasm PROPERTIES
+        OUTPUT_NAME "ase-markdown"
+        SUFFIX ".js"
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wasm"
+    )
+    target_link_options(ase-markdown-wasm PRIVATE
+        "SHELL:-s EXPORTED_FUNCTIONS=['_parse_markdown','_free_result','_malloc','_free']"
+        "SHELL:-s EXPORTED_RUNTIME_METHODS=['ccall','cwrap','UTF8ToString']"
+        "SHELL:-s MODULARIZE=1"
+        "SHELL:-s EXPORT_NAME='AseMarkdown'"
+        "SHELL:-s ALLOW_MEMORY_GROWTH=1"
+        "SHELL:-s TOTAL_MEMORY=16MB"
+    )
+endif()
+
 # Installation
 include(GNUInstallDirs)
 install(DIRECTORY include/
