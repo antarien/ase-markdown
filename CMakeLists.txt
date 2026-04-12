@@ -76,6 +76,12 @@ target_include_directories(${PROJECT_NAME}
 
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
 
+# Layer 0 dependencies
+target_link_libraries(${PROJECT_NAME}
+    PUBLIC
+        ase::alloc
+)
+
 #[[ VERBOTEN: No Layer 3+ dependencies ]]
 
 # Tests
