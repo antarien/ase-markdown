@@ -1,4 +1,5 @@
 #include <ase/markdown/markdown.hpp>
+#include <ase/markdown/frontmatter.hpp>
 #include <cmark-gfm.h>
 #include <cmark-gfm-core-extensions.h>
 #include <cstdlib>
@@ -115,14 +116,23 @@ Node* convert_node(Document& doc, cmark_node* cnode) {
 }  // anonymous namespace
 
 Document parse(const char* input, uint32_t len, ParseOptions opts) {
-    (void)opts;
-
     // Allocate document with arena
     Document doc{};
     doc.buffer_size = DOCUMENT_ARENA_SIZE;
     doc.buffer = static_cast<char*>(std::malloc(doc.buffer_size));
     doc.arena = static_cast<ase::alloc::Arena*>(std::malloc(sizeof(ase::alloc::Arena)));
     *doc.arena = ase::alloc::Arena(doc.buffer, doc.buffer_size);
+
+    // Strip frontmatter before parsing markdown
+    const char* body = input;
+    uint32_t body_len = len;
+    if (opts.parse_frontmatter) {
+        uint32_t offset = parse_frontmatter(input, len, doc.frontmatter, doc);
+        if (offset > 0) {
+            body = input + offset;
+            body_len = len - offset;
+        }
+    }
 
     // Register GFM extensions
     cmark_gfm_core_extensions_ensure_registered();
@@ -139,8 +149,8 @@ Document parse(const char* input, uint32_t len, ParseOptions opts) {
     if (strike_ext) cmark_parser_attach_syntax_extension(parser, strike_ext);
     if (tasklist_ext) cmark_parser_attach_syntax_extension(parser, tasklist_ext);
 
-    // Parse
-    cmark_parser_feed(parser, input, static_cast<size_t>(len));
+    // Parse body (without frontmatter)
+    cmark_parser_feed(parser, body, static_cast<size_t>(body_len));
     cmark_node* cmark_root = cmark_parser_finish(parser);
 
     // Convert cmark tree to ase::markdown tree

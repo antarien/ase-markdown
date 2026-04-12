@@ -1,6 +1,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 #include <ase/markdown/markdown.hpp>
+#include <cstring>
 
 using namespace ase::markdown;
 
@@ -189,6 +190,56 @@ TEST_CASE("cmark-gfm: emphasis and strong") {
     auto* strong = para->first_child;
     CHECK(strong != nullptr);
     CHECK(strong->type == NODE_STRONG);
+
+    free_document(doc);
+}
+
+TEST_CASE("frontmatter: title and version extracted") {
+    const char* input = "---\ntitle: ECS Architecture\nversion: 1.2.0\ncurated: true\n---\n# Hello";
+    auto doc = parse(input, static_cast<uint32_t>(std::strlen(input)));
+
+    CHECK(doc.frontmatter.title != nullptr);
+    CHECK(std::strcmp(doc.frontmatter.title, "ECS Architecture") == 0);
+    CHECK(doc.frontmatter.version != nullptr);
+    CHECK(std::strcmp(doc.frontmatter.version, "1.2.0") == 0);
+    CHECK(doc.frontmatter.curated == 1);
+
+    // Body still parsed after frontmatter
+    CHECK(doc.root->first_child != nullptr);
+    CHECK(doc.root->first_child->type == NODE_HEADING);
+
+    free_document(doc);
+}
+
+TEST_CASE("frontmatter: no frontmatter passes through") {
+    const char* input = "# No frontmatter here";
+    auto doc = parse(input, static_cast<uint32_t>(std::strlen(input)));
+
+    CHECK(doc.frontmatter.title == nullptr);
+    CHECK(doc.frontmatter.version == nullptr);
+    CHECK(doc.frontmatter.curated == 0);
+    CHECK(doc.root->first_child->type == NODE_HEADING);
+
+    free_document(doc);
+}
+
+TEST_CASE("frontmatter: quoted values stripped") {
+    const char* input = "---\ntitle: \"Quoted Title\"\ncategory: 'architecture'\n---\nBody";
+    auto doc = parse(input, static_cast<uint32_t>(std::strlen(input)));
+
+    CHECK(doc.frontmatter.title != nullptr);
+    CHECK(std::strcmp(doc.frontmatter.title, "Quoted Title") == 0);
+    CHECK(doc.frontmatter.category != nullptr);
+    CHECK(std::strcmp(doc.frontmatter.category, "architecture") == 0);
+
+    free_document(doc);
+}
+
+TEST_CASE("frontmatter: order parsed as integer") {
+    const char* input = "---\norder: 42\n---\nBody";
+    auto doc = parse(input, static_cast<uint32_t>(std::strlen(input)));
+
+    CHECK(doc.frontmatter.order == 42);
 
     free_document(doc);
 }

@@ -75,9 +75,11 @@ LIBRARY DEFINITION
 add_library(${PROJECT_NAME} STATIC
     # Sources
     src/markdown_prs_base.cpp
+    src/markdown_prs_fmtr.cpp
 
     # Headers (for IDE integration)
     include/ase/markdown/markdown.hpp
+    include/ase/markdown/frontmatter.hpp
     include/ase/markdown/types.hpp
     include/ase/markdown/ast.hpp
 )
