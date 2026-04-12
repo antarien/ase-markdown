@@ -113,8 +113,8 @@ target_link_libraries(${PROJECT_NAME}
     PUBLIC
         ase::alloc
     PRIVATE
-        libcmark-gfm_static
         libcmark-gfm-extensions_static
+        libcmark-gfm_static
 )
 
 #[[ VERBOTEN: No Layer 3+ dependencies ]]
