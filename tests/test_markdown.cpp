@@ -301,6 +301,61 @@ TEST_CASE("pass_math: inline math detected") {
     free_document(doc);
 }
 
+TEST_CASE("integration: real ASE document snippet") {
+    const char* input =
+        "---\ntitle: Style Guide\ncurated: true\n---\n"
+        "# (nf-fa-book) ASE Markdown Style Guide\n\n"
+        "> (nf-fa-tag) **Ase Docs** `00.16.32` [feat]\n\n"
+        "## (nf-fa-info_circle) Purpose and Scope\n\n"
+        "This document defines **HOW** to format.\n\n"
+        "> [!INFO]\n> The reference document is CAUSA_ASE_TIME.md.\n\n"
+        "---\n\n"
+        "The formula $h = g / sph$ calculates the hour.\n\n"
+        "```mermaid\nflowchart TD\nA-->B\n```\n";
+    auto doc = parse(input, static_cast<uint32_t>(std::strlen(input)));
+
+    // Frontmatter
+    CHECK(doc.frontmatter.title != nullptr);
+    CHECK(std::strcmp(doc.frontmatter.title, "Style Guide") == 0);
+    CHECK(doc.frontmatter.curated == 1);
+
+    // Document structure
+    CHECK(doc.root != nullptr);
+    CHECK(doc.root->type == NODE_DOCUMENT);
+
+    // Walk and count node types
+    uint32_t headings = 0, callouts = 0, icons = 0, math = 0, mermaid = 0;
+    Node* n = doc.root->first_child;
+    while (n) {
+        if (n->type == NODE_HEADING) headings++;
+        if (n->type == NODE_CALLOUT) callouts++;
+        if (n->type == NODE_MERMAID_BLOCK) mermaid++;
+
+        // Check children for inline nodes
+        Node* c = n->first_child;
+        while (c) {
+            if (c->type == NODE_NERDFONT_ICON) icons++;
+            if (c->type == NODE_MATH_INLINE) math++;
+            Node* cc = c->first_child;
+            while (cc) {
+                if (cc->type == NODE_NERDFONT_ICON) icons++;
+                if (cc->type == NODE_MATH_INLINE) math++;
+                cc = cc->next_sibling;
+            }
+            c = c->next_sibling;
+        }
+        n = n->next_sibling;
+    }
+
+    CHECK(headings == 2);    // H1 + H2
+    CHECK(callouts == 1);    // [!INFO]
+    CHECK(mermaid == 1);     // ```mermaid
+    CHECK(icons >= 2);       // (nf-fa-book) + (nf-fa-info_circle)
+    CHECK(math >= 1);        // $h = g / sph$
+
+    free_document(doc);
+}
+
 TEST_CASE("pass_icons: NerdFont icon detected") {
     const char* input = "## (nf-fa-cube) Architecture";
     auto doc = parse(input, static_cast<uint32_t>(std::strlen(input)));
