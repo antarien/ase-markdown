@@ -2,6 +2,8 @@
 #include <ase/markdown/frontmatter.hpp>
 #include <cmark-gfm.h>
 #include <cmark-gfm-core-extensions.h>
+#include <table.h>
+#include <strikethrough.h>
 #include <cstdlib>
 #include <cstring>
 
