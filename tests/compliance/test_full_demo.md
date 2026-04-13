@@ -1,116 +1,106 @@
 ---
 title: ASE Markdown Full Demo
-version: 00.16.32
+description: Comprehensive feature demonstration
+version: 1.0.0
 curated: true
-keywords: [markdown, ase, demo]
+keywords:
+  - demo
+  - test
 ---
 
-# (nf-fa-book) ASE Markdown Style Guide
+# (nf-fa-rocket) Full Demo Document
 
-> (nf-fa-tag) **Ase Docs** `00.16.32` [feat]
+This demonstrates all ASE markdown features.
 
-## (nf-fa-info_circle) Purpose and Scope
+## Headings and Text
 
-This document demonstrates **ALL** ASE Markdown features for compliance testing.
+### Subsection H3
+#### Subsection H4
+##### Subsection H5
+###### Subsection H6
 
----
-
-## Standard Elements
-
-### Text Formatting
-
-This is **bold**, *italic*, ~~strikethrough~~, and `inline code`.
-
-### Lists
-
-- Bullet item 1
-- Bullet item 2
-  - Nested bullet
-
-1. Ordered item 1
-2. Ordered item 2
-
-### Links and Images
-
-[ASE Documentation](https://docs.antarien.com)
-
-### Tables
-
-| Module | Layer | Status |
-|--------|-------|--------|
-| ase-terrain | L3 | core |
-| ase-player | L3 | feat |
-| ase-ecs | L1 | stable |
-
-### Blockquotes
-
-> The engine handles billions of entities in real-time.
+Regular paragraph with **bold**, *italic*, `inline code`, and ~~strikethrough~~.
 
 ---
-
-## ASE Extensions
-
-### Callouts
-
-> [!INFO]
-> The reference document is CAUSA_ASE_TIME.md.
-
-> [!WARNING]
-> Breaking changes in the next release.
-
-> [!TIP]
-> Use `ase mdv -B -R` to build and run the viewer.
-
-> [!NOTE]
-> This feature requires ase-markdown v0.1+.
-
-### Math
-
-The formula $h = g / sph$ calculates the hour.
-
-$$
-T_{eff} = T_0 \cdot \left(1 - \frac{v^2}{c^2}\right)^{1/2}
-$$
-
-### NerdFont Icons
-
-## (nf-fa-cube) Architecture
-
-### (nf-fa-cogs) Configuration
 
 ## Code Blocks
 
 ```cpp
-struct PositionComponent {
-    float x = 0.0f;
-    float y = 0.0f;
-    float z = 0.0f;
-};
-```
-
-```typescript
-@component
-export class SkyBrightnessComponent {
-    @field.float32 declare zenithBrightness: number;
+#include <iostream>
+int main() {
+    std::cout << "Hello ASE" << std::endl;
+    return 0;
 }
-```
-
-```diff
-+ Added new terrain system
-- Removed legacy renderer
-[v0.16.32] Release notes
--> Migration path documented
 ```
 
 ```mermaid
 flowchart TD
-    A[Parser] --> B[AST]
-    B --> C[Renderer]
-    C --> D[Canvas]
+    A[Start] --> B[Process]
+    B --> C[End]
+```
+
+```diff
+- removed line
++ added line
+  unchanged line
 ```
 
 ```svgbob
-    +--------+     +--------+
-    | Parser |---->|  AST   |
-    +--------+     +--------+
++---+    +---+
+| A |--->| B |
++---+    +---+
 ```
+
+## Math
+
+Inline: $E = mc^2$ and $\alpha = 42$.
+
+Display:
+
+$$
+\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}
+$$
+
+## Callouts
+
+> [!INFO]
+> Information callout.
+
+> [!WARNING]
+> Warning callout.
+
+> [!TIP]
+> Tip callout.
+
+> [!NOTE]
+> Note callout.
+
+## Tables
+
+| Column A | Column B | Column C |
+|----------|----------|----------|
+| Cell 1   | Cell 2   | Cell 3   |
+| Cell 4   | Cell 5   | Cell 6   |
+
+## Lists
+
+- Bullet item 1
+- Bullet item 2
+  - Nested item
+- Bullet item 3
+
+1. Ordered item 1
+2. Ordered item 2
+3. Ordered item 3
+
+> This is a regular blockquote.
+
+---
+
+## Icons
+
+This has a (nf-fa-rocket) icon and a (nf-fa-code) icon.
+
+---
+
+End of demo.

@@ -1,5 +1,5 @@
 > [!INFO]
-> This is an informational callout.
+> This is an info callout.
 
 > [!WARNING]
 > This is a warning callout.
