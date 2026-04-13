@@ -29,6 +29,16 @@ set_target_properties(ase-markdown-test PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
+# One-off debug stat dumper for arbitrary markdown files.
+add_executable(ase-markdown-debug
+    debug_demo.cpp
+)
+target_link_libraries(ase-markdown-debug PRIVATE ase::markdown)
+target_compile_features(ase-markdown-debug PRIVATE cxx_std_20)
+set_target_properties(ase-markdown-debug PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
 # Compliance tests (fixture-based)
 add_executable(ase-markdown-compliance
     test_compliance.cpp

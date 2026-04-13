@@ -16,6 +16,7 @@
 
 #include <ase/markdown/types.hpp>
 #include <ase/markdown/ast.hpp>
+#include <string>
 
 namespace ase::markdown {
 
@@ -31,6 +32,9 @@ Document parse(const char* input, uint32_t len, ParseOptions opts = {});
 
 // Free all memory owned by a Document (nodes, strings, arena).
 void free_document(Document& doc);
+
+// Pre-processing (called by parse() before cmark-gfm, DSGN mode only)
+std::string preprocess_directives(const char* input, uint32_t len);
 
 // Post-processing passes (called by parse(), also available individually)
 void pass_callouts(Document& doc);

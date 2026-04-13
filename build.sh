@@ -181,6 +181,7 @@ if [ ! -f "$BUILD_DIR/build.ninja" ] || [ -n "$(find "$SCRIPT_DIR" -name 'CMakeL
     $BUILD_PREFIX cmake -B "$BUILD_DIR" -G Ninja \
         -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
         -DASE_BUILD_TESTS=ON \
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
         -S "$SCRIPT_DIR" 2>&1 | tail -5
     if [ ${PIPESTATUS[0]} -ne 0 ]; then
         section_line "$CROSS" "CMake configure failed"

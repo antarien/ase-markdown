@@ -57,6 +57,14 @@ message(STATUS "Configuring ${PROJECT_NAME} v${PROJECT_VERSION}")
 EXTERNAL DEPENDENCIES
 cmark-gfm: CommonMark + GFM parser (C library, FetchContent cached in build/_deps/)
 ]]
+# Layer 0 dependency: ase-alloc (for standalone build)
+if(NOT TARGET ase::alloc)
+    set(ASE_FOUNDATION_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../foundation)
+    if(EXISTS "${ASE_FOUNDATION_PATH}/ase-alloc/CMakeLists.txt")
+        add_subdirectory(${ASE_FOUNDATION_PATH}/ase-alloc ${CMAKE_BINARY_DIR}/_deps/ase-alloc-build)
+    endif()
+endif()
+
 if(NOT TARGET libcmark-gfm_static)
     include(FetchContent)
     FetchContent_Declare(cmark_gfm
@@ -97,6 +105,12 @@ target_include_directories(${PROJECT_NAME}
 )
 
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
+
+# Disable cmark-gfm's NODE_* short-name macros so they cannot collide with
+# the ASE constexpr NODE_* identifiers in ase/markdown/types.hpp. Without this
+# the macros redefine our identifiers as cmark enum values, which truncate to
+# uint8_t producing wrong AST node types.
+target_compile_definitions(${PROJECT_NAME} PRIVATE CMARK_NO_SHORT_NAMES)
 
 # cmark-gfm uses old-style include_directories() (directory-scoped, not target-scoped).
 # Headers are not propagated to downstream targets via target_link_libraries.
