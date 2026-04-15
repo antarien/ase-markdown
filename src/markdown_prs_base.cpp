@@ -210,16 +210,17 @@ Document parse(const char* input, uint32_t len, ParseOptions opts) {
         }
     }
 
-    // DSGN mode: replace :::block{attrs}…::: and ::leaf{attrs} with HTML
-    // comment markers so they survive cmark parsing as HTML_BLOCK nodes,
-    // then are restored to NODE_BLOCK_DIRECTIVE / NODE_LEAF_DIRECTIVE by
-    // pass_directives().
-    std::string preprocessed;
-    if (opts.mode == MODE_DSGN) {
-        preprocessed = preprocess_directives(body, body_len);
-        body = preprocessed.c_str();
-        body_len = static_cast<uint32_t>(preprocessed.size());
-    }
+    // Directive preprocessing runs for BOTH modes. The TECH/DSGN split
+    // was only ever UI classification (which catalogue a doc belongs to),
+    // never a parser-level separation. Every `:::block{attrs}…:::` and
+    // `::leaf{attrs}` in the raw input is replaced with an HTML comment
+    // marker so it survives cmark-gfm as an HTML_BLOCK, then restored to
+    // NODE_BLOCK_DIRECTIVE / NODE_LEAF_DIRECTIVE by pass_directives().
+    // Documents without any `:::` lines pay zero cost (the scanner is a
+    // single forward pass and simply emits the input unchanged).
+    std::string preprocessed = preprocess_directives(body, body_len);
+    body = preprocessed.c_str();
+    body_len = static_cast<uint32_t>(preprocessed.size());
 
     cmark_gfm_core_extensions_ensure_registered();
 
@@ -247,11 +248,12 @@ Document parse(const char* input, uint32_t len, ParseOptions opts) {
     pass_math(doc);
     pass_icons(doc);
 
-    // DSGN-only passes.
-    if (opts.mode == MODE_DSGN) {
-        pass_directives(doc);
-        pass_inline_extensions(doc);
-    }
+    // Directive passes — run regardless of mode so TECH docs that happen
+    // to use `:::` blocks or `::name` leaves render identically to DSGN
+    // docs. Doing both passes unconditionally removes the parser-level
+    // TECH/DSGN fork and leaves mode as a pure UI classification.
+    pass_directives(doc);
+    pass_inline_extensions(doc);
 
     return doc;
 }
@@ -270,6 +272,36 @@ void free_document(Document& doc) {
     }
     doc.buffer_size = 0;
     doc.root = nullptr;
+}
+
+// ── Parse a raw markdown fragment into ase AST children ──────────────
+//
+// Used by markdown_prs_drct.cpp to cmark-parse the content of block and
+// leaf directives so that `![img](url)`, `**bold**`, fenced code blocks
+// and other markdown inside a directive becomes proper AST nodes instead
+// of a single raw-text child. Does NOT run the preprocess/pass pipeline
+// (directive preprocessing is handled by the outer parse() call; nested
+// block directives inside a directive's content are not supported).
+// Returns the top-level ase node that wraps the cmark document tree —
+// the caller transfers its children to the directive node.
+Node* parse_fragment_to_ase(Document& doc, const char* content, uint32_t content_len) {
+    if (content == nullptr || content_len == 0) return nullptr;
+    cmark_gfm_core_extensions_ensure_registered();
+    cmark_parser* parser = cmark_parser_new(CMARK_OPT_DEFAULT);
+    cmark_syntax_extension* table_ext    = cmark_find_syntax_extension("table");
+    cmark_syntax_extension* autolink_ext = cmark_find_syntax_extension("autolink");
+    cmark_syntax_extension* strike_ext   = cmark_find_syntax_extension("strikethrough");
+    cmark_syntax_extension* tasklist_ext = cmark_find_syntax_extension("tasklist");
+    if (table_ext    != nullptr) cmark_parser_attach_syntax_extension(parser, table_ext);
+    if (autolink_ext != nullptr) cmark_parser_attach_syntax_extension(parser, autolink_ext);
+    if (strike_ext   != nullptr) cmark_parser_attach_syntax_extension(parser, strike_ext);
+    if (tasklist_ext != nullptr) cmark_parser_attach_syntax_extension(parser, tasklist_ext);
+    cmark_parser_feed(parser, content, static_cast<size_t>(content_len));
+    cmark_node* cmark_root = cmark_parser_finish(parser);
+    Node* ase_root = convert_node(doc, cmark_root);
+    cmark_node_free(cmark_root);
+    cmark_parser_free(parser);
+    return ase_root;
 }
 
 }  // namespace ase::markdown

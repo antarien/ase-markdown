@@ -45,7 +45,39 @@
 
 namespace ase::markdown {
 
+// Defined in markdown_prs_base.cpp — cmark-parses a raw fragment into an
+// ase AST root so directive content (images, bold, code fences, …) becomes
+// proper nodes instead of a single raw-text child.
+Node* parse_fragment_to_ase(Document& doc, const char* content, uint32_t content_len);
+
 namespace {
+
+// Move every child from src to dst. Used to graft a parsed fragment's
+// top-level nodes into a directive node without keeping the wrapper
+// NODE_DOCUMENT around.
+void move_children(Node* dst, Node* src) {
+    if (!dst || !src) return;
+    Node* c = src->first_child;
+    while (c != nullptr) {
+        Node* next = c->next_sibling;
+        c->parent = nullptr;
+        c->next_sibling = nullptr;
+        append_child(dst, c);
+        c = next;
+    }
+    src->first_child = nullptr;
+}
+
+// Attach the parsed-markdown children of `content` as children of
+// `parent`. Calls the cmark fragment parser in base.cpp and grafts the
+// resulting document root's children into the parent.
+void attach_markdown_fragment(Document& doc, Node* parent,
+                              const char* content, uint32_t content_len) {
+    if (!parent || !content || content_len == 0) return;
+    Node* frag = parse_fragment_to_ase(doc, content, content_len);
+    if (!frag) return;
+    move_children(parent, frag);
+}
 
 // ── Attribute Parser ───────────────────────────────────────────────
 
@@ -226,10 +258,12 @@ void parse_children(Document& doc, Node* parent, const char* content, uint32_t c
             }
 
             if (!child_text.empty()) {
-                Node* text_node = alloc_node(doc, NODE_TEXT);
-                text_node->text = alloc_string(doc, child_text.c_str(), static_cast<uint32_t>(child_text.size()));
-                text_node->text_len = static_cast<uint32_t>(child_text.size());
-                append_child(child, text_node);
+                // Cmark-parse the leaf directive's multi-line content so
+                // embedded images / code / emphasis become proper AST
+                // nodes instead of a single raw-text child.
+                attach_markdown_fragment(doc, child,
+                                         child_text.c_str(),
+                                         static_cast<uint32_t>(child_text.size()));
             }
 
             append_child(parent, child);
@@ -246,15 +280,35 @@ void parse_children(Document& doc, Node* parent, const char* content, uint32_t c
             }
             pos = skip_pos;
         } else {
-            bool is_blank = true;
-            for (uint32_t i = 0; i < line_len; i++) {
-                if (line[i] != ' ' && line[i] != '\t' && line[i] != '\r') { is_blank = false; break; }
-            }
-            if (!is_blank && !parent->first_child) {
-                Node* text_node = alloc_node(doc, NODE_TEXT);
-                text_node->text = alloc_string(doc, line, line_len);
-                text_node->text_len = line_len;
-                append_child(parent, text_node);
+            // Pre-leaf content: accumulate every non-directive line until
+            // we hit a leaf directive or run out of content, then
+            // cmark-parse the whole block so images / code / emphasis
+            // become proper nodes. Without this, block directives with
+            // plain markdown content (e.g. :::figure\n![alt](url)\n:::)
+            // lose their image to a raw-text child.
+            if (!parent->first_child) {
+                uint32_t frag_start = line_start;
+                uint32_t frag_end = line_end;
+                uint32_t scan = line_end + 1;
+                while (scan < content_len) {
+                    uint32_t sl_start = scan;
+                    uint32_t sl_end = scan;
+                    while (sl_end < content_len && content[sl_end] != '\n') sl_end++;
+                    uint32_t d_ns, d_ne, d_as, d_ae;
+                    if (is_leaf_directive(content + sl_start, sl_end - sl_start,
+                                          d_ns, d_ne, d_as, d_ae)) {
+                        break;
+                    }
+                    frag_end = sl_end;
+                    scan = sl_end + 1;
+                }
+                if (frag_end > frag_start) {
+                    attach_markdown_fragment(doc, parent,
+                                             content + frag_start,
+                                             frag_end - frag_start);
+                }
+                pos = (scan < content_len) ? scan : content_len;
+                continue;
             }
             pos = (line_end < content_len) ? line_end + 1 : content_len;
         }
