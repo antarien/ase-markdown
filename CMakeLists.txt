@@ -11,7 +11,7 @@ ASE CORE BUILD CONFIGURATION
 @layer       1 (Core)
 @created     2026-04-12
 @modified    2026-04-12
-@version     00.00.01.00001 [stub]
+@version     00.00.01.00001 [seed]
 
 CMAKE MODULE COMPLIANCE
 [x] cmake_minimum_required(VERSION 3.20) as FIRST line
