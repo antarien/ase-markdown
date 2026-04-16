@@ -16,7 +16,7 @@
  *
  * @created     2026-04-12
  * @modified    2026-04-12
- * @version     00.00.01.00001 [stub]
+ * @version     00.00.01.00001 [seed]
  *
  * ==============================================================================
  * CORE INFRASTRUCTURE IMPLEMENTATION COMPLIANCE

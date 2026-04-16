@@ -64,9 +64,9 @@ get_status() {
     if [ -f "$VERSION_FILE" ]; then
         local result
         result=$(grep "^ASE_MARKDOWN_STATUS=" "$VERSION_FILE" 2>/dev/null | cut -d'=' -f2)
-        echo "${result:-stub}"
+        echo "${result:-seed}"
     else
-        echo "stub"
+        echo "seed"
     fi
 }
 
@@ -89,7 +89,7 @@ bump_build() {
 get_status_color() {
     local status_val="$1"
     case "$status_val" in
-        stub)       echo "${GRAY}" ;;
+        seed)       echo "${GRAY}" ;;
         poc)        echo "${MAGENTA}" ;;
         init|core|feat) echo "${YELLOW}" ;;
         refine|alpha)   echo "${CYAN}" ;;
@@ -102,7 +102,7 @@ get_status_color() {
 get_status_icon() {
     local status_val="$1"
     case "$status_val" in
-        stub) echo "○" ;; poc) echo "◐" ;; init) echo "◑" ;; core) echo "◒" ;;
+        seed) echo "○" ;; poc) echo "◐" ;; init) echo "◑" ;; core) echo "◒" ;;
         feat) echo "◓" ;; refine) echo "●" ;; alpha) echo "α" ;; beta) echo "β" ;;
         stable) echo "★" ;; *) echo "?" ;;
     esac
