@@ -75,6 +75,23 @@ if(NOT TARGET libcmark-gfm_static)
     set(CMARK_TESTS OFF CACHE BOOL "" FORCE)
     set(CMARK_SHARED OFF CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(cmark_gfm)
+
+    # ── Real fix for upstream cmark-gfm/buffer.c -Wstringop-overflow ──
+    # GCC's IPA/-O2 analysis flags cmark's intentional sentinel-buffer
+    # pattern (cmark_strbuf__initbuf is a 1-byte placeholder, the write
+    # at offset 1 only happens AFTER buf->ptr has been redirected to a
+    # real allocation — the analyzer can't prove that across functions).
+    # Suppression scoped to the single file via #pragma — narrowest scope
+    # the GCC C dialect allows for an upstream-source false-positive.
+    set(_CMARK_BUFFER "${cmark_gfm_SOURCE_DIR}/src/buffer.c")
+    if(EXISTS "${_CMARK_BUFFER}")
+        file(READ "${_CMARK_BUFFER}" _CMARK_BUFFER_SRC)
+        if(NOT _CMARK_BUFFER_SRC MATCHES "Wstringop-overflow")
+            file(WRITE "${_CMARK_BUFFER}"
+                "#pragma GCC diagnostic ignored \"-Wstringop-overflow\"\n${_CMARK_BUFFER_SRC}")
+            message(STATUS "Patched cmark-gfm buffer.c stringop-overflow false-positive")
+        endif()
+    endif()
 endif()
 
 #[[
