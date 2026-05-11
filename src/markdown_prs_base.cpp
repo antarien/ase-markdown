@@ -118,6 +118,8 @@ Node* convert_node(Document& doc, cmark_node* cnode) {
             else if (streq(fence_info, "diff"))     type = NODE_DIFF_BLOCK;
             else if (streq(fence_info, "svgbob"))   type = NODE_SVGBOB_BLOCK;
             else if (streq(fence_info, "ase-math")) type = NODE_ASEMATH_BLOCK;
+            else if (streq(fence_info, "plantuml")) type = NODE_PLANTUML_BLOCK;
+            else if (streq(fence_info, "puml"))     type = NODE_PLANTUML_BLOCK;
         }
     }
 

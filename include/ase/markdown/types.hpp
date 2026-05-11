@@ -38,6 +38,7 @@ constexpr uint8_t NODE_MERMAID_BLOCK    = 35;
 constexpr uint8_t NODE_DIFF_BLOCK       = 36;
 constexpr uint8_t NODE_SVGBOB_BLOCK     = 37;
 constexpr uint8_t NODE_ASEMATH_BLOCK    = 38;
+constexpr uint8_t NODE_PLANTUML_BLOCK   = 39;
 
 // ASE DSL extensions (DSGN only)
 constexpr uint8_t NODE_BLOCK_DIRECTIVE  = 50;
