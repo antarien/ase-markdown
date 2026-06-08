@@ -41,7 +41,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <string>
-#include <vector>
+#include <ase/containers/vector.hpp>
 
 namespace ase::markdown {
 
@@ -138,7 +138,7 @@ struct DirectiveData {
     bool is_block;
 };
 
-static std::vector<DirectiveData> g_directives;
+static ase::containers::Vector<DirectiveData> g_directives;
 
 // ── Line scanning helpers ──────────────────────────────────────────
 

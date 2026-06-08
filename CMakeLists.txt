@@ -65,6 +65,14 @@ if(NOT TARGET ase::alloc)
     endif()
 endif()
 
+# Layer 0 dependency: ase-containers (for standalone build)
+if(NOT TARGET ase::containers)
+    set(ASE_FOUNDATION_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../foundation)
+    if(EXISTS "${ASE_FOUNDATION_PATH}/ase-containers/CMakeLists.txt")
+        add_subdirectory(${ASE_FOUNDATION_PATH}/ase-containers ${CMAKE_BINARY_DIR}/_deps/ase-containers-build)
+    endif()
+endif()
+
 if(NOT TARGET libcmark-gfm_static)
     include(FetchContent)
     FetchContent_Declare(cmark_gfm
@@ -144,6 +152,7 @@ target_link_libraries(${PROJECT_NAME}
     PUBLIC
         ase::alloc
     PRIVATE
+        ase::containers  # Layer 0 - Vector (g_directives buffer in markdown_prs_drct.cpp impl only)
         libcmark-gfm-extensions_static
         libcmark-gfm_static
 )
