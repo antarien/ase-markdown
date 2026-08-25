@@ -1,14 +1,54 @@
 #pragma once
 
-/**
- * Directive name constants for CMS DSL (DSGN mode).
+/*
+ * ==============================================================================
+ * ASE CORE INFRASTRUCTURE HEADER
+ * ==============================================================================
  *
- * 21 Block Directives (:::name{attrs} ... :::)
- * 10 Leaf Directives  (::name{attrs})
- *  7 Inline Extensions ([[wiki]], {{glossary}}, {ref:}, {icon:}, {version}, :tip[]{})
+ * @file        directives.hpp
+ * @brief       The directive NAME registry of the CMS DSL (DSGN mode)
+ * @description The single place where the directive names of the DSL are written
+ *              down: 21 block directives (:::name{attrs} ... :::), 10 leaf
+ *              directives (::name{attrs}) and 7 inline extensions ([[wiki]],
+ *              {{glossary}}, {ref:}, {icon:}, {version}, :tip[]{}).
  *
- * @module   ase-markdown
- * @layer    1 (Core)
+ *              WHY A REGISTRY AND NOT STRING LITERALS AT THE CALL SITES: the DSL
+ *              pass writes these names into Node::directive_name and every
+ *              consumer dispatches on them. Repeated literals would put the same
+ *              spelling in two places with nothing comparing them - a renamed
+ *              directive would parse on one side and silently never match on the
+ *              other. The umbrella markdown.hpp re-exports this header for that
+ *              reason.
+ *
+ * @module      ase-markdown
+ * @layer       1 (Core)
+ * @category    process/computation/algorithm
+ *
+ * @created     2026-04-13
+ * @modified    2026-08-20
+ * @version     1.0.0
+ *
+ * ==============================================================================
+ * CORE INFRASTRUCTURE COMPLIANCE
+ * ==============================================================================
+ * [ ] NOT an ECS Component or System
+ * [ ] Layer dependencies correct (L0: no ASE deps, L1: L0 only)
+ * [ ] No global mutable state (constexpr/const only)
+ * [ ] No singletons or static mutable variables
+ * [ ] Thread-safe by design (pure functions or explicit mutex)
+ * [ ] All public functions documented with @brief, @param, @return
+ * [ ] constexpr where possible (compile-time evaluation)
+ * [ ] noexcept where possible (no-throw guarantee)
+ * [ ] [[nodiscard]] on functions returning values
+ * [ ] No magic numbers (use named constants)
+ * [ ] No implicit conversions (use explicit constructors)
+ * [ ] Header-only OR header+cpp pattern (not mixed)
+ * [ ] Include guards via #pragma once
+ * [ ] Namespace matches module: ase::{module}
+ * [ ] No circular dependencies
+ * [ ] No macros (except include guards) - use constexpr/templates
+ * [ ] API stable (changes require version bump)
+ * ==============================================================================
  */
 
 namespace ase::markdown::directive {

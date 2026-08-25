@@ -1,9 +1,45 @@
-/**
- * Callout post-processing pass.
+/*
+ * ==============================================================================
+ * ASE CORE INFRASTRUCTURE IMPLEMENTATION
+ * ==============================================================================
  *
- * Walks the AST looking for blockquotes whose first text starts with
- * [!INFO], [!WARNING], [!TIP], or [!NOTE]. Converts matching blockquotes
- * to NODE_CALLOUT with the appropriate callout_type.
+ * @file        markdown_prs_clot.cpp
+ * @brief       Callout post-processing pass — blockquote to NODE_CALLOUT
+ * @description Walks the AST for blockquotes whose first text run begins with
+ *              [!INFO], [!WARNING], [!TIP] or [!NOTE] and rewrites those nodes
+ *              to NODE_CALLOUT carrying the matching CALLOUT_* value.
+ *
+ *              WHY IT IS A PASS AND NOT PART OF THE BLOCK PARSER: a callout is
+ *              a plain CommonMark blockquote until its first text is read, so
+ *              recognising it inside the block parser would mean looking ahead
+ *              into inline content that has not been parsed yet. Running it
+ *              afterwards keeps the block parser standard-conformant and makes
+ *              the ASE extension removable without touching it.
+ *
+ * @module      ase-markdown
+ * @layer       1 (Core)
+ * @category    process/computation/algorithm
+ *
+ * @created     2026-04-12
+ * @modified    2026-08-20
+ * @version     1.0.0
+ *
+ * ==============================================================================
+ * CORE INFRASTRUCTURE IMPLEMENTATION COMPLIANCE
+ * ==============================================================================
+ * [ ] NOT an ECS System implementation
+ * [ ] Layer dependencies correct (L0: no ASE deps, L1: L0 only)
+ * [ ] Own header included FIRST
+ * [ ] No global mutable state
+ * [ ] No static initialization order fiasco
+ * [ ] Thread-safe implementations (pure or mutex-protected)
+ * [ ] All error conditions handled
+ * [ ] No exceptions thrown (use Result<T> pattern)
+ * [ ] Implementation details in anonymous namespace
+ * [ ] No inline implementations of template specializations here
+ * [ ] Platform-specific code isolated and documented
+ * [ ] Performance-critical code profiled and optimized
+ * ==============================================================================
  */
 
 #include <ase/markdown/ast.hpp>

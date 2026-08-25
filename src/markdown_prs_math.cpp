@@ -1,11 +1,47 @@
-/**
- * Math post-processing pass.
+/*
+ * ==============================================================================
+ * ASE CORE INFRASTRUCTURE IMPLEMENTATION
+ * ==============================================================================
  *
- * Walks text nodes looking for $...$ (inline math) and $$...$$ (display math).
- * Splits text nodes and inserts NODE_MATH_INLINE / NODE_MATH_DISPLAY nodes.
+ * @file        markdown_prs_math.cpp
+ * @brief       Math post-processing pass — KaTeX spans and blocks out of text
+ * @description Walks text nodes for $...$ and $$...$$, splits the run at each
+ *              delimiter pair and inserts NODE_MATH_INLINE or NODE_MATH_DISPLAY
+ *              between the remaining fragments. Display math is recognised when
+ *              a paragraph holds nothing but the $$...$$ pair; inline math is
+ *              recognised inside running text.
  *
- * Display math ($$) is detected on separate lines (paragraph containing only $$...$$).
- * Inline math ($) is detected within running text.
+ *              THE SPLIT IS WHY THIS RUNS ON TEXT NODES AND NOT ON THE INPUT:
+ *              a dollar sign inside inline code or inside an HTML span is not a
+ *              delimiter. By the time the AST exists those runs are already
+ *              their own node types, so scanning text nodes alone cannot reach
+ *              them - a regex over the raw input would have to re-implement
+ *              that distinction and would get it wrong at the first edge case.
+ *
+ * @module      ase-markdown
+ * @layer       1 (Core)
+ * @category    process/computation/algorithm
+ *
+ * @created     2026-04-12
+ * @modified    2026-08-20
+ * @version     1.0.0
+ *
+ * ==============================================================================
+ * CORE INFRASTRUCTURE IMPLEMENTATION COMPLIANCE
+ * ==============================================================================
+ * [ ] NOT an ECS System implementation
+ * [ ] Layer dependencies correct (L0: no ASE deps, L1: L0 only)
+ * [ ] Own header included FIRST
+ * [ ] No global mutable state
+ * [ ] No static initialization order fiasco
+ * [ ] Thread-safe implementations (pure or mutex-protected)
+ * [ ] All error conditions handled
+ * [ ] No exceptions thrown (use Result<T> pattern)
+ * [ ] Implementation details in anonymous namespace
+ * [ ] No inline implementations of template specializations here
+ * [ ] Platform-specific code isolated and documented
+ * [ ] Performance-critical code profiled and optimized
+ * ==============================================================================
  */
 
 #include <ase/markdown/ast.hpp>

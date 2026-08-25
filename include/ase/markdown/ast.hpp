@@ -1,5 +1,56 @@
 #pragma once
 
+/*
+ * ==============================================================================
+ * ASE CORE INFRASTRUCTURE HEADER
+ * ==============================================================================
+ *
+ * @file        ast.hpp
+ * @brief       The POD node type of the ase-markdown syntax tree
+ * @description Declares Node, the single tree type every parse pass writes into,
+ *              and Attr, the key/value pair a directive carries. Both are plain
+ *              data: no methods, no virtuals, no ownership. The tree lives in the
+ *              arena of its Document (ase-alloc), so a node holds raw child and
+ *              sibling pointers into that arena and never frees anything itself -
+ *              freeing one document is freeing one arena.
+ *
+ *              WHY THE POINTERS ARE RAW AND STAY RAW: the lifetime of every node
+ *              is exactly the lifetime of its Document. A smart pointer would
+ *              claim an ownership that does not exist here and would cost a
+ *              refcount per node on a tree that is built once and read many
+ *              times.
+ *
+ * @module      ase-markdown
+ * @layer       1 (Core)
+ * @category    process/computation/algorithm
+ *
+ * @created     2026-04-12
+ * @modified    2026-08-20
+ * @version     1.0.0
+ *
+ * ==============================================================================
+ * CORE INFRASTRUCTURE COMPLIANCE
+ * ==============================================================================
+ * [ ] NOT an ECS Component or System
+ * [ ] Layer dependencies correct (L0: no ASE deps, L1: L0 only)
+ * [ ] No global mutable state (constexpr/const only)
+ * [ ] No singletons or static mutable variables
+ * [ ] Thread-safe by design (pure functions or explicit mutex)
+ * [ ] All public functions documented with @brief, @param, @return
+ * [ ] constexpr where possible (compile-time evaluation)
+ * [ ] noexcept where possible (no-throw guarantee)
+ * [ ] [[nodiscard]] on functions returning values
+ * [ ] No magic numbers (use named constants)
+ * [ ] No implicit conversions (use explicit constructors)
+ * [ ] Header-only OR header+cpp pattern (not mixed)
+ * [ ] Include guards via #pragma once
+ * [ ] Namespace matches module: ase::{module}
+ * [ ] No circular dependencies
+ * [ ] No macros (except include guards) - use constexpr/templates
+ * [ ] API stable (changes require version bump)
+ * ==============================================================================
+ */
+
 #include <ase/markdown/types.hpp>
 #include <ase/alloc/arena.hpp>
 #include <cstdint>

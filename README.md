@@ -1,5 +1,7 @@
 # ase-markdown
 
+**Design:** DSGN_065 (Metagaming-Web-Ökosystem), DSGN_066 (Browser-App)
+
 [![Layer](https://img.shields.io/badge/Layer-1%20Core-blue.svg)]()
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)]()
 

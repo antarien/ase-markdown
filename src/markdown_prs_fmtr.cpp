@@ -1,4 +1,57 @@
+/*
+ * ==============================================================================
+ * ASE CORE INFRASTRUCTURE IMPLEMENTATION
+ * ==============================================================================
+ *
+ * @file        markdown_prs_fmtr.cpp
+ * @brief       Frontmatter pass — YAML header into the Frontmatter struct
+ * @description Implements parse_frontmatter(): detects the `---\n ... \n---\n`
+ *              prefix, reads the key: value pairs it recognises into the
+ *              Frontmatter struct and returns the offset at which the body
+ *              begins.
+ *
+ *              THE KEY MATCH IS A BOUNDED SCAN SINCE 2026-08-20. It read the key
+ *              length with std::strlen, which the standard-library rule forbids
+ *              for a reason that applies here: the function takes `const char*`
+ *              and walks until it finds a NUL, however far away that is. The
+ *              replacement ase::utils::str_len stops at MAX_FRONTMATTER_KEY_LEN.
+ *              Every key this file passes is a literal a few characters long, so
+ *              the bound never truncates a key - it removes the unbounded case,
+ *              it does not cap the vocabulary.
+ *
+ *              fmtr = frontmatter.
+ *
+ * @module      ase-markdown
+ * @layer       1 (Core)
+ * @category    process/computation/algorithm
+ *
+ * @created     2026-04-12
+ * @modified    2026-08-20
+ * @version     1.0.0
+ *
+ * ==============================================================================
+ * CORE INFRASTRUCTURE IMPLEMENTATION COMPLIANCE
+ * ==============================================================================
+ * [ ] NOT an ECS System implementation
+ * [ ] Layer dependencies correct (L0: no ASE deps, L1: L0 only)
+ * [ ] Own header included FIRST
+ * [ ] No global mutable state
+ * [ ] No static initialization order fiasco
+ * [ ] Thread-safe implementations (pure or mutex-protected)
+ * [ ] All error conditions handled
+ * [ ] No exceptions thrown (use Result<T> pattern)
+ * [ ] Implementation details in anonymous namespace
+ * [ ] No inline implementations of template specializations here
+ * [ ] Platform-specific code isolated and documented
+ * [ ] Performance-critical code profiled and optimized
+ * ==============================================================================
+ */
+
 #include <ase/markdown/frontmatter.hpp>
+
+#include <ase/markdown/types.hpp>
+#include <ase/utils/strops.hpp>
+
 #include <cstring>
 
 namespace ase::markdown {
@@ -46,8 +99,14 @@ void extract_value(const char* line, uint32_t line_len,
 }
 
 // Check if line starts with key (case-sensitive)
+//
+// The key length comes from a BOUNDED scan: ase::utils::str_len stops at
+// MAX_FRONTMATTER_KEY_LEN instead of walking to the next NUL wherever that is.
+// Every key passed in here is a literal of this file, the longest being
+// "description" at 11 characters, so the bound never truncates a key - it only
+// removes the unbounded case std::strlen would leave open.
 bool starts_with_key(const char* line, uint32_t line_len, const char* key) {
-    uint32_t klen = static_cast<uint32_t>(std::strlen(key));
+    uint32_t klen = ase::utils::str_len(key, MAX_FRONTMATTER_KEY_LEN);
     if (line_len < klen + 1) return false;
     return std::memcmp(line, key, klen) == 0 && line[klen] == ':';
 }

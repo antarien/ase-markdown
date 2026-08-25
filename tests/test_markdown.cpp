@@ -6,8 +6,20 @@
 using namespace ase::markdown;
 
 TEST_CASE("parse returns document with root node") {
-    const char* input = "# Hello\n\nWorld";
-    auto doc = parse(input, 14);
+    const char input[] = "# Hello\n\nWorld";
+    /* DIE LAENGE WIRD GERECHNET, NICHT GEZAEHLT — und das behebt zwei Dinge auf einmal.
+     *
+     * Diese Datei fuehrte bis 2026-08-22 ZWEI Formen nebeneinander: neun Aufrufe mit einer von
+     * Hand gezaehlten Zahl (14, 13, 23, ...) und zehn mit std::strlen(input). Die zweite Form
+     * meldete der Validator (C_STRING_FUNCTIONS_FORBIDDEN, 10 Befunde) — die erste meldete
+     * niemand, obwohl sie die gefaehrlichere ist: wer die Zeichenkette darueber aendert, laesst
+     * die Zahl still veralten, und der Test prueft danach einen abgeschnittenen Text weiter,
+     * ohne rot zu werden.
+     *
+     * `const char input[]` statt `const char*` macht die Laenge zu einer Uebersetzungszeit-
+     * Tatsache. sizeof(input) - 1 ist exakt, kann nicht veralten und braucht weder strlen noch
+     * einen Helfer. Der Abzug von eins ist der Nullterminator, den parse() nicht zaehlt. */
+    auto doc = parse(input, static_cast<uint32_t>(sizeof(input) - 1));
 
     CHECK(doc.root != nullptr);
     CHECK(doc.root->type == NODE_DOCUMENT);
@@ -82,8 +94,8 @@ TEST_CASE("append_child builds tree") {
 }
 
 TEST_CASE("cmark-gfm: heading parsed correctly") {
-    const char* input = "# Hello World";
-    auto doc = parse(input, 13);
+    const char input[] = "# Hello World";
+    auto doc = parse(input, static_cast<uint32_t>(sizeof(input) - 1));
 
     CHECK(doc.root->type == NODE_DOCUMENT);
     CHECK(doc.root->first_child != nullptr);
@@ -101,8 +113,8 @@ TEST_CASE("cmark-gfm: heading parsed correctly") {
 }
 
 TEST_CASE("cmark-gfm: heading + paragraph") {
-    const char* input = "# Title\n\nSome text here.";
-    auto doc = parse(input, 23);
+    const char input[] = "# Title\n\nSome text here.";
+    auto doc = parse(input, static_cast<uint32_t>(sizeof(input) - 1));
 
     auto* heading = doc.root->first_child;
     CHECK(heading != nullptr);
@@ -121,8 +133,8 @@ TEST_CASE("cmark-gfm: heading + paragraph") {
 }
 
 TEST_CASE("cmark-gfm: code block classified") {
-    const char* input = "```cpp\nint x = 0;\n```";
-    auto doc = parse(input, 21);
+    const char input[] = "```cpp\nint x = 0;\n```";
+    auto doc = parse(input, static_cast<uint32_t>(sizeof(input) - 1));
 
     auto* code = doc.root->first_child;
     CHECK(code != nullptr);
@@ -133,8 +145,8 @@ TEST_CASE("cmark-gfm: code block classified") {
 }
 
 TEST_CASE("cmark-gfm: mermaid code block") {
-    const char* input = "```mermaid\nflowchart TD\nA-->B\n```";
-    auto doc = parse(input, 33);
+    const char input[] = "```mermaid\nflowchart TD\nA-->B\n```";
+    auto doc = parse(input, static_cast<uint32_t>(sizeof(input) - 1));
 
     auto* block = doc.root->first_child;
     CHECK(block != nullptr);
@@ -144,8 +156,8 @@ TEST_CASE("cmark-gfm: mermaid code block") {
 }
 
 TEST_CASE("cmark-gfm: diff code block") {
-    const char* input = "```diff\n+ added\n- removed\n```";
-    auto doc = parse(input, 29);
+    const char input[] = "```diff\n+ added\n- removed\n```";
+    auto doc = parse(input, static_cast<uint32_t>(sizeof(input) - 1));
 
     auto* block = doc.root->first_child;
     CHECK(block != nullptr);
@@ -155,8 +167,8 @@ TEST_CASE("cmark-gfm: diff code block") {
 }
 
 TEST_CASE("cmark-gfm: link with url") {
-    const char* input = "[click](https://example.com)";
-    auto doc = parse(input, 28);
+    const char input[] = "[click](https://example.com)";
+    auto doc = parse(input, static_cast<uint32_t>(sizeof(input) - 1));
 
     auto* para = doc.root->first_child;
     CHECK(para != nullptr);
@@ -169,8 +181,8 @@ TEST_CASE("cmark-gfm: link with url") {
 }
 
 TEST_CASE("cmark-gfm: ordered list") {
-    const char* input = "1. First\n2. Second\n";
-    auto doc = parse(input, 19);
+    const char input[] = "1. First\n2. Second\n";
+    auto doc = parse(input, static_cast<uint32_t>(sizeof(input) - 1));
 
     auto* list = doc.root->first_child;
     CHECK(list != nullptr);
@@ -182,8 +194,8 @@ TEST_CASE("cmark-gfm: ordered list") {
 }
 
 TEST_CASE("cmark-gfm: emphasis and strong") {
-    const char* input = "**bold** and *italic*";
-    auto doc = parse(input, 21);
+    const char input[] = "**bold** and *italic*";
+    auto doc = parse(input, static_cast<uint32_t>(sizeof(input) - 1));
 
     auto* para = doc.root->first_child;
     CHECK(para != nullptr);
@@ -195,8 +207,8 @@ TEST_CASE("cmark-gfm: emphasis and strong") {
 }
 
 TEST_CASE("frontmatter: title and version extracted") {
-    const char* input = "---\ntitle: ECS Architecture\nversion: 1.2.0\ncurated: true\n---\n# Hello";
-    auto doc = parse(input, static_cast<uint32_t>(std::strlen(input)));
+    const char input[] = "---\ntitle: ECS Architecture\nversion: 1.2.0\ncurated: true\n---\n# Hello";
+    auto doc = parse(input, static_cast<uint32_t>(sizeof(input) - 1));
 
     CHECK(doc.frontmatter.title != nullptr);
     CHECK(std::strcmp(doc.frontmatter.title, "ECS Architecture") == 0);
@@ -212,8 +224,8 @@ TEST_CASE("frontmatter: title and version extracted") {
 }
 
 TEST_CASE("frontmatter: no frontmatter passes through") {
-    const char* input = "# No frontmatter here";
-    auto doc = parse(input, static_cast<uint32_t>(std::strlen(input)));
+    const char input[] = "# No frontmatter here";
+    auto doc = parse(input, static_cast<uint32_t>(sizeof(input) - 1));
 
     CHECK(doc.frontmatter.title == nullptr);
     CHECK(doc.frontmatter.version == nullptr);
@@ -224,8 +236,8 @@ TEST_CASE("frontmatter: no frontmatter passes through") {
 }
 
 TEST_CASE("frontmatter: quoted values stripped") {
-    const char* input = "---\ntitle: \"Quoted Title\"\ncategory: 'architecture'\n---\nBody";
-    auto doc = parse(input, static_cast<uint32_t>(std::strlen(input)));
+    const char input[] = "---\ntitle: \"Quoted Title\"\ncategory: 'architecture'\n---\nBody";
+    auto doc = parse(input, static_cast<uint32_t>(sizeof(input) - 1));
 
     CHECK(doc.frontmatter.title != nullptr);
     CHECK(std::strcmp(doc.frontmatter.title, "Quoted Title") == 0);
@@ -236,8 +248,8 @@ TEST_CASE("frontmatter: quoted values stripped") {
 }
 
 TEST_CASE("frontmatter: order parsed as integer") {
-    const char* input = "---\norder: 42\n---\nBody";
-    auto doc = parse(input, static_cast<uint32_t>(std::strlen(input)));
+    const char input[] = "---\norder: 42\n---\nBody";
+    auto doc = parse(input, static_cast<uint32_t>(sizeof(input) - 1));
 
     CHECK(doc.frontmatter.order == 42);
 
@@ -245,8 +257,8 @@ TEST_CASE("frontmatter: order parsed as integer") {
 }
 
 TEST_CASE("pass_callouts: INFO callout detected") {
-    const char* input = "> [!INFO]\n> This is important.";
-    auto doc = parse(input, static_cast<uint32_t>(std::strlen(input)));
+    const char input[] = "> [!INFO]\n> This is important.";
+    auto doc = parse(input, static_cast<uint32_t>(sizeof(input) - 1));
 
     auto* callout = doc.root->first_child;
     CHECK(callout != nullptr);
@@ -257,8 +269,8 @@ TEST_CASE("pass_callouts: INFO callout detected") {
 }
 
 TEST_CASE("pass_callouts: WARNING callout detected") {
-    const char* input = "> [!WARNING]\n> Do not do this.";
-    auto doc = parse(input, static_cast<uint32_t>(std::strlen(input)));
+    const char input[] = "> [!WARNING]\n> Do not do this.";
+    auto doc = parse(input, static_cast<uint32_t>(sizeof(input) - 1));
 
     auto* callout = doc.root->first_child;
     CHECK(callout != nullptr);
@@ -269,8 +281,8 @@ TEST_CASE("pass_callouts: WARNING callout detected") {
 }
 
 TEST_CASE("pass_callouts: normal blockquote unchanged") {
-    const char* input = "> Just a regular quote.";
-    auto doc = parse(input, static_cast<uint32_t>(std::strlen(input)));
+    const char input[] = "> Just a regular quote.";
+    auto doc = parse(input, static_cast<uint32_t>(sizeof(input) - 1));
 
     auto* bq = doc.root->first_child;
     CHECK(bq != nullptr);
@@ -280,8 +292,8 @@ TEST_CASE("pass_callouts: normal blockquote unchanged") {
 }
 
 TEST_CASE("pass_math: inline math detected") {
-    const char* input = "The formula $E=mc^2$ is famous.";
-    auto doc = parse(input, static_cast<uint32_t>(std::strlen(input)));
+    const char input[] = "The formula $E=mc^2$ is famous.";
+    auto doc = parse(input, static_cast<uint32_t>(sizeof(input) - 1));
 
     // Walk paragraph children looking for math node
     auto* para = doc.root->first_child;
@@ -302,7 +314,7 @@ TEST_CASE("pass_math: inline math detected") {
 }
 
 TEST_CASE("integration: real ASE document snippet") {
-    const char* input =
+    const char input[] =
         "---\ntitle: Style Guide\ncurated: true\n---\n"
         "# (nf-fa-book) ASE Markdown Style Guide\n\n"
         "> (nf-fa-tag) **Ase Docs** `00.16.32` [feat]\n\n"
@@ -312,7 +324,7 @@ TEST_CASE("integration: real ASE document snippet") {
         "---\n\n"
         "The formula $h = g / sph$ calculates the hour.\n\n"
         "```mermaid\nflowchart TD\nA-->B\n```\n";
-    auto doc = parse(input, static_cast<uint32_t>(std::strlen(input)));
+    auto doc = parse(input, static_cast<uint32_t>(sizeof(input) - 1));
 
     // Frontmatter
     CHECK(doc.frontmatter.title != nullptr);
@@ -357,8 +369,8 @@ TEST_CASE("integration: real ASE document snippet") {
 }
 
 TEST_CASE("pass_icons: NerdFont icon detected") {
-    const char* input = "## (nf-fa-cube) Architecture";
-    auto doc = parse(input, static_cast<uint32_t>(std::strlen(input)));
+    const char input[] = "## (nf-fa-cube) Architecture";
+    auto doc = parse(input, static_cast<uint32_t>(sizeof(input) - 1));
 
     auto* heading = doc.root->first_child;
     CHECK(heading != nullptr);

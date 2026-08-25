@@ -1,8 +1,45 @@
-/**
- * NerdFont icon post-processing pass.
+/*
+ * ==============================================================================
+ * ASE CORE INFRASTRUCTURE IMPLEMENTATION
+ * ==============================================================================
  *
- * Walks all text nodes looking for (nf-*-*) patterns.
- * Splits text nodes around icon patterns, inserting NODE_NERDFONT_ICON nodes.
+ * @file        markdown_prs_nfnt.cpp
+ * @brief       NerdFont icon post-processing pass — (nf-*-*) out of text runs
+ * @description Walks text nodes for the (nf-family-name) pattern, splits the run
+ *              around each match and inserts a NODE_NERDFONT_ICON between the
+ *              remaining fragments.
+ *
+ *              THE ICON IS A REFERENCE, NOT A GLYPH. This pass records WHICH
+ *              icon was named and never resolves it to a codepoint: the mapping
+ *              belongs to whoever renders, and a parser that baked in codepoints
+ *              would freeze one NerdFont version into every parsed document.
+ *
+ *              nfnt = NerdFont.
+ *
+ * @module      ase-markdown
+ * @layer       1 (Core)
+ * @category    process/computation/algorithm
+ *
+ * @created     2026-04-12
+ * @modified    2026-08-20
+ * @version     1.0.0
+ *
+ * ==============================================================================
+ * CORE INFRASTRUCTURE IMPLEMENTATION COMPLIANCE
+ * ==============================================================================
+ * [ ] NOT an ECS System implementation
+ * [ ] Layer dependencies correct (L0: no ASE deps, L1: L0 only)
+ * [ ] Own header included FIRST
+ * [ ] No global mutable state
+ * [ ] No static initialization order fiasco
+ * [ ] Thread-safe implementations (pure or mutex-protected)
+ * [ ] All error conditions handled
+ * [ ] No exceptions thrown (use Result<T> pattern)
+ * [ ] Implementation details in anonymous namespace
+ * [ ] No inline implementations of template specializations here
+ * [ ] Platform-specific code isolated and documented
+ * [ ] Performance-critical code profiled and optimized
+ * ==============================================================================
  */
 
 #include <ase/markdown/ast.hpp>

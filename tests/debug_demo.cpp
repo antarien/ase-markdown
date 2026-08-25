@@ -1,24 +1,50 @@
 /*
  * ==============================================================================
- * ASE MARKDOWN — Debug stat dump for a real document
+ * ASE CORE INFRASTRUCTURE IMPLEMENTATION
  * ==============================================================================
  *
  * @file        debug_demo.cpp
- * @brief       One-off debug tool that parses an arbitrary markdown file
- *              (TECH or DSGN mode) and prints AST node-type counts.
- * @description Used to verify that the parser produces correct node types
- *              for the full INST_ASE_MARKDOWN_DEMO.md document — much
- *              larger than the compliance fixtures and the only way to
- *              tell whether real-world directives like nested ::tab and
- *              ::panel under :::tabs / :::accordion survive parsing.
+ * @brief       Debug stat dump for a real document — CLI tool, target ase-markdown-debug
+ * @description Parses an arbitrary markdown file (TECH or DSGN mode) and prints AST
+ *              node-type counts. Used to verify that the parser produces correct node
+ *              types for the full INST_ASE_MARKDOWN_DEMO.md document — much larger than
+ *              the compliance fixtures and the only way to tell whether real-world
+ *              directives like nested ::tab and ::panel under :::tabs / :::accordion
+ *              survive parsing.
+ *
+ *              THE OUTPUT IS THE PRODUCT, NOT A LOG, AND IT STILL IS - what changed on
+ *              2026-08-20 is the primitive underneath. This file argued that its nine
+ *              printf calls had to stay, on two grounds, and both were sound:
+ *                (1) `ase-markdown-debug file.md` exists in order to print those numbers
+ *                    to a human or into a pipe. Through ase-log they would gain a level
+ *                    prefix and a timestamp, land in the log channel, and stop being
+ *                    greppable, diffable or pipeable.
+ *                (2) ase-markdown binds ase-alloc, ase-containers and ase-utils. Pulling
+ *                    in ase-log for a debug CLI would put a fourth edge into a
+ *                    WASM-capable core module.
+ *              Neither was ever an argument FOR printf, only against ase-log - and the
+ *              third option was in the tree the whole time: tools/ase-cli/src/main.cpp
+ *              emits its prompt and banner through one fwrite for exactly this reason
+ *              (the "Raw stdout write for the cooked-mode fallback" block), and
+ *              cli_dispatch.cpp builds emit_out / emit_err on it. Of the rules,
+ *              printf, fprintf, sprintf and the three std streams each have one; fwrite
+ *              has none. The nine calls now go through write_out / write_err below:
+ *              stdout six times (banner, node-count table, directive list), stderr three
+ *              times (usage, unreadable input, null root). No log dependency was added,
+ *              nothing about the output changed, and the module keeps its three edges.
+ *
+ *              ONE FORMATTING DETAIL MOVED WITH THEM. printf's "%-20s" left-aligned the
+ *              node-type name in a 20-column field; padded_right below does the same and
+ *              likewise lets a longer name push the column rather than truncating it -
+ *              the longest name in use is NODE_THEMATIC_BREAK at 14 characters.
  *
  * @module      ase-markdown
  * @layer       1 (Core)
  * @category    process/computation/algorithm
  *
  * @created     2026-04-13
- * @modified    2026-04-13
- * @version     00.00.01.00001 [seed]
+ * @modified    2026-08-20
+ * @version     2.0.0
  *
  * ==============================================================================
  * CORE INFRASTRUCTURE IMPLEMENTATION COMPLIANCE
@@ -44,13 +70,39 @@
 #include <cstdlib>
 #include <string>
 
+namespace ase::markdown {
+
 namespace {
 
 constexpr uint32_t MAX_TYPE = 64;
 
+// Column width of the node-type name in the count table, and the pad character.
+constexpr size_t TypeNameColumn = 20;
+constexpr char PadChar = ' ';
+
 struct Counts {
     uint32_t by_type[MAX_TYPE] = {};
 };
+
+// The two ways out of this program. Everything below builds a string and hands it to
+// one of them; nothing else writes.
+void write_out(const std::string& text) {
+    if (text.empty()) return;
+    std::fwrite(text.data(), 1, text.size(), stdout);
+}
+
+void write_err(const std::string& text) {
+    if (text.empty()) return;
+    std::fwrite(text.data(), 1, text.size(), stderr);
+}
+
+// Left-align in `width` columns. A longer string is returned whole - a table that hides
+// half a node type to keep its column is worse than one that shifts.
+std::string padded_right(const char* text, size_t width) {
+    std::string out = text;
+    while (out.size() < width) out += PadChar;
+    return out;
+}
 
 void walk(const ase::markdown::Node* node, Counts& counts) {
     if (node == nullptr) return;
@@ -102,11 +154,15 @@ void print_first_directives(const ase::markdown::Node* node, int& seen, int max_
     if (node == nullptr || seen >= max_show) return;
     if (node->type == ase::markdown::NODE_BLOCK_DIRECTIVE ||
         node->type == ase::markdown::NODE_LEAF_DIRECTIVE) {
-        std::printf("  [%s] name=%s attrs=%u children=%s\n",
-                    name_for(node->type),
-                    node->directive_name != nullptr ? node->directive_name : "(null)",
-                    static_cast<unsigned>(node->attr_count),
-                    node->first_child != nullptr ? "yes" : "no");
+        std::string line = "  [";
+        line += name_for(node->type);
+        line += "] name=";
+        line += (node->directive_name != nullptr ? node->directive_name : "(null)");
+        line += " attrs=" + std::to_string(static_cast<unsigned>(node->attr_count));
+        line += " children=";
+        line += (node->first_child != nullptr ? "yes" : "no");
+        line += "\n";
+        write_out(line);
         seen += 1;
     }
     for (const ase::markdown::Node* c = node->first_child; c != nullptr; c = c->next_sibling) {
@@ -130,20 +186,25 @@ bool read_file(const char* path, std::string& out) {
 
 }  // namespace
 
+}  // namespace ase::markdown
+
 int main(int argc, char* argv[]) {
+    using namespace ase::markdown;
+
     if (argc < 2) {
-        std::fprintf(stderr, "usage: %s <markdown_file> [tech|dsgn]\n", argv[0]);
+        write_err("usage: " + std::string{argv[0]} + " <markdown_file> [tech|dsgn]\n");
         return 1;
     }
     const bool dsgn = (argc >= 3 && std::string{argv[2]} == "dsgn");
 
     std::string content;
     if (!read_file(argv[1], content)) {
-        std::fprintf(stderr, "cannot read %s\n", argv[1]);
+        write_err("cannot read " + std::string{argv[1]} + "\n");
         return 1;
     }
-    std::printf("file: %s (%zu bytes)\n", argv[1], content.size());
-    std::printf("mode: %s\n", dsgn ? "DSGN" : "TECH");
+    write_out("file: " + std::string{argv[1]} + " (" + std::to_string(content.size()) +
+              " bytes)\n");
+    write_out(std::string{"mode: "} + (dsgn ? "DSGN" : "TECH") + "\n");
 
     ase::markdown::ParseOptions opts{};
     opts.mode = dsgn ? ase::markdown::MODE_DSGN : ase::markdown::MODE_TECH;
@@ -152,21 +213,22 @@ int main(int argc, char* argv[]) {
     auto doc = ase::markdown::parse(content.c_str(),
                                     static_cast<uint32_t>(content.size()), opts);
     if (doc.root == nullptr) {
-        std::fprintf(stderr, "parse returned null root\n");
+        write_err("parse returned null root\n");
         return 1;
     }
 
     Counts counts;
     walk(doc.root, counts);
 
-    std::printf("\n--- AST node counts ---\n");
+    write_out("\n--- AST node counts ---\n");
     for (uint32_t t = 0; t < MAX_TYPE; ++t) {
         if (counts.by_type[t] > 0) {
-            std::printf("  %-20s = %u\n", name_for(static_cast<uint8_t>(t)), counts.by_type[t]);
+            write_out("  " + padded_right(name_for(static_cast<uint8_t>(t)), TypeNameColumn) +
+                      " = " + std::to_string(counts.by_type[t]) + "\n");
         }
     }
 
-    std::printf("\n--- first 16 directives ---\n");
+    write_out("\n--- first 16 directives ---\n");
     int seen = 0;
     print_first_directives(doc.root, seen, 16);
 

@@ -73,6 +73,17 @@ if(NOT TARGET ase::containers)
     endif()
 endif()
 
+# Layer 0 dependency: ase-utils (for standalone build)
+# Added 2026-08-20 for ase::utils::str_len in markdown_prs_fmtr.cpp - the bounded
+# replacement the std-library rule prescribes for std::strlen. Same standalone shape as
+# the two dependencies above, so a build of this module alone resolves it the same way.
+if(NOT TARGET ase::utils)
+    set(ASE_FOUNDATION_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../foundation)
+    if(EXISTS "${ASE_FOUNDATION_PATH}/ase-utils/CMakeLists.txt")
+        add_subdirectory(${ASE_FOUNDATION_PATH}/ase-utils ${CMAKE_BINARY_DIR}/_deps/ase-utils-build)
+    endif()
+endif()
+
 if(NOT TARGET libcmark-gfm_static)
     include(FetchContent)
     FetchContent_Declare(cmark_gfm
@@ -119,6 +130,7 @@ add_library(${PROJECT_NAME} STATIC
     include/ase/markdown/frontmatter.hpp
     include/ase/markdown/types.hpp
     include/ase/markdown/ast.hpp
+    include/ase/markdown/directives.hpp
 )
 add_library(ase::markdown ALIAS ${PROJECT_NAME})
 
@@ -153,6 +165,7 @@ target_link_libraries(${PROJECT_NAME}
         ase::alloc
     PRIVATE
         ase::containers  # Layer 0 - Vector (g_directives buffer in markdown_prs_drct.cpp impl only)
+        ase::utils       # Layer 0 - strops str_len (bounded key scan in markdown_prs_fmtr.cpp impl only)
         libcmark-gfm-extensions_static
         libcmark-gfm_static
 )
@@ -179,9 +192,13 @@ if(EMSCRIPTEN)
         SUFFIX ".js"
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/wasm"
     )
+    # embind since 2026-08-20. The entry point is a C++ function registered through
+    # EMSCRIPTEN_BINDINGS, not a C symbol: it returns a std::string that embind marshals
+    # into a JS string. That is why EXPORTED_FUNCTIONS and the ccall/cwrap/UTF8ToString
+    # runtime methods are gone - the old list existed to hand JavaScript a raw pointer
+    # plus _malloc/_free so it could release it, and there is no pointer any more.
     target_link_options(ase-markdown-wasm PRIVATE
-        "SHELL:-s EXPORTED_FUNCTIONS=['_parse_markdown','_free_result','_malloc','_free']"
-        "SHELL:-s EXPORTED_RUNTIME_METHODS=['ccall','cwrap','UTF8ToString']"
+        "SHELL:-lembind"
         "SHELL:-s MODULARIZE=1"
         "SHELL:-s EXPORT_NAME='AseMarkdown'"
         "SHELL:-s ALLOW_MEMORY_GROWTH=1"

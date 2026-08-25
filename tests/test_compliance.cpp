@@ -2,8 +2,7 @@
 #include <doctest/doctest.h>
 #include <ase/markdown/markdown.hpp>
 #include <ase/markdown/types.hpp>
-#include <fstream>
-#include <sstream>
+#include <ase/fileio/text_reader.hpp>
 #include <string>
 #include <cstring>
 
@@ -19,13 +18,23 @@ std::string read_fixture(const char* name) {
         "../../tests/compliance/",
         "core/ase-markdown/tests/compliance/"
     };
+    /* ase::fileio::read_text statt Strom plus Stringstream — und der Umbau macht die Funktion
+     * zugleich kuerzer, nicht nur konform.
+     *
+     * Die alte Fassung brauchte DREI Schritte fuer eine Frage: Strom oeffnen, is_open pruefen,
+     * ueber einen Stringstream in eine Zeichenkette umschaufeln. read_text beantwortet sie in
+     * einem und gibt bei jedem Lesefehler eine LEERE Zeichenkette zurueck.
+     *
+     * DIE PRUEFUNG WECHSELT DAMIT VON "liess sich oeffnen" AUF "hat Inhalt", und fuer diesen
+     * Aufrufer ist das dasselbe Urteil: eine Vorlagendatei, die es gibt und die leer ist,
+     * traegt genau null erwartete Knoten — der Test darauf faellt so oder so. Der einzige
+     * Unterschied waere ein Verzeichnis, in dem die Datei leer existiert, waehrend ein
+     * spaeteres sie gefuellt haette; dann faehrt die Schleife jetzt richtigerweise weiter. */
     for (const char* dir : dirs) {
-        std::string path = std::string(dir) + name;
-        std::ifstream f(path);
-        if (f.is_open()) {
-            std::ostringstream ss;
-            ss << f.rdbuf();
-            return ss.str();
+        const std::string path = std::string(dir) + name;
+        std::string inhalt = ase::fileio::read_text(path);
+        if (!inhalt.empty()) {
+            return inhalt;
         }
     }
     return "";
