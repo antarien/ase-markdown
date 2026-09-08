@@ -10,8 +10,8 @@ ASE CORE BUILD CONFIGURATION
 @module      ase-markdown
 @layer       1 (Core)
 @created     2026-04-12
-@modified    2026-04-12
-@version     00.00.01.00001 [seed]
+@modified    2026-09-08
+@version     00.00.20.00020 [init]
 
 CMAKE MODULE COMPLIANCE
 [x] cmake_minimum_required(VERSION 3.20) as FIRST line
@@ -26,7 +26,7 @@ CMAKE MODULE COMPLIANCE
 [x] install(DIRECTORY include/ ...) for headers
 ]]
 
-# Parse local VERSION if not building from root
+# Parse local VERSION (SSOT) if not building from root
 if(NOT DEFINED ASE_MARKDOWN_VERSION)
     if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION")
         message(FATAL_ERROR "VERSION file not found: ${CMAKE_CURRENT_SOURCE_DIR}/VERSION")
