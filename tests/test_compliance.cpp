@@ -1,4 +1,55 @@
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+/**
+ * ASE CORE INFRASTRUCTURE IMPLEMENTATION
+ *
+ * @file        test_compliance.cpp
+ * @brief       Parses five real Markdown fixtures and counts the node types they must produce
+ * @description Fuenf Faelle, die den Parser NICHT an handgeschriebenen Schnipseln pruefen,
+ *              sondern an vollstaendigen Vorlagendateien unter tests/compliance/ — Ueberschriften,
+ *              Hinweiskaesten, Mathematik, ein volles Demodokument und der DSGN-Modus mit
+ *              Direktiven.
+ *
+ *              WARUM AN VORLAGENDATEIEN UND NICHT AN ZEICHENKETTEN IM CODE: ein Parser scheitert
+ *              selten am einzelnen Element, sondern an seiner UMGEBUNG — eine Ueberschrift direkt
+ *              nach einem Codeblock, ein Hinweiskasten in einer Liste. Ein Schnipsel im Testcode
+ *              enthaelt genau die Umgebung, an die der Schreiber gedacht hat; eine echte Datei
+ *              enthaelt die, an die niemand gedacht hat.
+ *
+ *              WARUM GEZAEHLT UND NICHT NUR AUF VORHANDENSEIN GEPRUEFT: ein Parser, der ein
+ *              Element DOPPELT erzeugt, besteht jede Vorhandenseinspruefung. Die Faelle mit
+ *              fester Zahl (sechs Ueberschriften, vier Hinweiskaesten) fangen genau das; wo die
+ *              Vorlage waechst, steht bewusst `>=`, damit eine ERGAENZTE Vorlage den Test nicht
+ *              rot macht, ohne dass am Parser etwas falsch ist.
+ *
+ *              read_fixture SUCHT MEHRERE VERZEICHNISSE AB, weil das Arbeitsverzeichnis eines
+ *              Testlaufs nicht festliegt. Es urteilt ueber INHALT, nicht ueber Oeffnen-Koennen:
+ *              eine leere Vorlagendatei traegt null erwartete Knoten, der Fall faellt so oder so,
+ *              und die Suche laeuft richtigerweise zum naechsten Verzeichnis weiter. Jeder Fall
+ *              beginnt mit REQUIRE auf nicht-leer — sonst pruefte er den Parser an nichts und
+ *              waere gruen.
+ *
+ * @module      ase-markdown
+ * @layer       1 (Core)
+ * @category    process/validation/check
+ * @created     2026-09-01
+ * @modified    2026-09-01
+ * @version     1.0.0
+ *
+ * CORE INFRASTRUCTURE IMPLEMENTATION COMPLIANCE
+ *
+ * [ ] NOT an ECS System implementation
+ * [ ] Layer dependencies correct (L0: no ASE deps, L1: L0 only)
+ * [ ] Own header included FIRST
+ * [ ] No global mutable state
+ * [ ] No static initialization order fiasco
+ * [ ] Thread-safe implementations (pure or mutex-protected)
+ * [ ] All error conditions handled
+ * [ ] No exceptions thrown (use Result<T> pattern)
+ * [ ] Implementation details in anonymous namespace
+ * [ ] No inline implementations of template specializations here
+ * [ ] Platform-specific code isolated and documented
+ * [ ] Performance-critical code profiled and optimized
+ */
+
 #include <doctest/doctest.h>
 #include <ase/markdown/markdown.hpp>
 #include <ase/markdown/types.hpp>
@@ -6,7 +57,18 @@
 #include <string>
 #include <cstring>
 
-using namespace ase::markdown;
+/**
+ * DIE FAELLE STEHEN IM NAMENSRAUM DES GEPRUEFTEN. Hier stand `using namespace ase::markdown;` auf
+ * Dateiebene: das zieht JEDEN Namen des Moduls dorthin, wo auch doctest und die
+ * Standardbibliothek stehen.
+ *
+ * Der Namensraum umschliesst die GANZE Datei, nicht nur den Helferblock. Die drei Helfer nehmen
+ * `const Node*` und `const char*`; beim ersten liegt der Argumenttyp im Modul, beim zweiten
+ * nicht. Eine Anordnung, die den Namensraum nur um die Helfer legt und die Faelle draussen
+ * laesst, haengt damit an der argumentabhaengigen Namenssuche — sie traegt fuer count_nodes und
+ * has_node_type und NICHT fuer read_fixture. Der volle Einschluss braucht diesen Zufall nicht.
+ */
+namespace ase::markdown {
 
 namespace {
 
@@ -55,7 +117,7 @@ bool has_node_type(const Node* node, uint8_t type) {
     return count_nodes(node, type) > 0;
 }
 
-}  // anonymous namespace
+}  // namespace
 
 TEST_CASE("compliance: headings H1-H6") {
     auto input = read_fixture("test_headings.md");
@@ -145,3 +207,5 @@ TEST_CASE("compliance: DSGN mode parses directives") {
 
     free_document(doc);
 }
+
+}  // namespace ase::markdown

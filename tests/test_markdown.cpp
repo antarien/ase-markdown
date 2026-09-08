@@ -1,9 +1,65 @@
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+/**
+ * ASE CORE INFRASTRUCTURE IMPLEMENTATION
+ *
+ * @file        test_markdown.cpp
+ * @brief       Drives the parser element by element: blocks, inline spans and the ASE extensions
+ * @description Vierundzwanzig Faelle an kurzen, im Code stehenden Eingaben — je ein Element und
+ *              seine Randfaelle. Die Ergaenzung dazu ist test_compliance.cpp, das dieselben
+ *              Elemente in vollstaendigen Vorlagendateien prueft; die Trennung ist Absicht und
+ *              beide Haelften werden gebraucht.
+ *
+ *              WARUM BEIDE HAELFTEN: ein Fall im Code sagt genau, WELCHES Element gebrochen ist,
+ *              und ist beim Fehlschlag in einer Zeile zu lesen. Er kann aber nur die Umgebung
+ *              pruefen, an die der Schreiber gedacht hat. Die Vorlagendateien liefern die
+ *              Umgebung, an die niemand gedacht hat, sagen beim Fehlschlag aber nur, dass eine
+ *              Zahl nicht stimmt. Faellt eine der beiden Haelften weg, verliert der Parser
+ *              entweder seine Diagnose oder seine Abdeckung.
+ *
+ *              DIE EINGABELAENGE WIRD GERECHNET, NICHT GEZAEHLT, und der Grund steht
+ *              ausgeschrieben beim ersten Fall: `const char input[]` plus sizeof(input) - 1 macht
+ *              die Laenge zu einer Uebersetzungszeit-Tatsache. Eine von Hand gezaehlte Zahl
+ *              veraltet still, sobald jemand die Zeichenkette darueber aendert — der Test prueft
+ *              dann einen abgeschnittenen Text weiter, ohne rot zu werden. Diese Form ist der
+ *              Grund, warum die Datei ohne std::strlen auskommt.
+ *
+ * @module      ase-markdown
+ * @layer       1 (Core)
+ * @category    process/validation/check
+ * @created     2026-09-01
+ * @modified    2026-09-01
+ * @version     1.0.0
+ *
+ * CORE INFRASTRUCTURE IMPLEMENTATION COMPLIANCE
+ *
+ * [ ] NOT an ECS System implementation
+ * [ ] Layer dependencies correct (L0: no ASE deps, L1: L0 only)
+ * [ ] Own header included FIRST
+ * [ ] No global mutable state
+ * [ ] No static initialization order fiasco
+ * [ ] Thread-safe implementations (pure or mutex-protected)
+ * [ ] All error conditions handled
+ * [ ] No exceptions thrown (use Result<T> pattern)
+ * [ ] Implementation details in anonymous namespace
+ * [ ] No inline implementations of template specializations here
+ * [ ] Platform-specific code isolated and documented
+ * [ ] Performance-critical code profiled and optimized
+ */
+
 #include <doctest/doctest.h>
 #include <ase/markdown/markdown.hpp>
 #include <cstring>
 
-using namespace ase::markdown;
+/**
+ * DIE FAELLE STEHEN IM NAMENSRAUM DES GEPRUEFTEN. Hier stand `using namespace ase::markdown;` auf
+ * Dateiebene: das zieht JEDEN Namen des Moduls dorthin, wo auch doctest und die
+ * Standardbibliothek stehen, und eine kuenftige Namensgleichheit traefe eine Datei, die mit der
+ * Sache nichts zu tun hat.
+ *
+ * Der Namensraum umschliesst die ganze Datei. Sie hat keine eigenen Helfer — es gaebe nichts,
+ * was in einen engeren Block gehoerte, und ein leerer Namensraum neben den Faellen waere die
+ * Form ohne die Sache.
+ */
+namespace ase::markdown {
 
 TEST_CASE("parse returns document with root node") {
     const char input[] = "# Hello\n\nWorld";
@@ -390,3 +446,5 @@ TEST_CASE("pass_icons: NerdFont icon detected") {
 
     free_document(doc);
 }
+
+}  // namespace ase::markdown

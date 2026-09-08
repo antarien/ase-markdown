@@ -1,0 +1,17 @@
+{
+    "$schema": "https://ase.dev/schemas/codegen.json",
+    "version": "2.0.0",
+    "module": "ase-markdown",
+    "client_relevance": false,
+    "dependencies": [
+        "ase-alloc"
+    ],
+    "components": {
+        "shared": [],
+        "server_only": []
+    },
+    "systems": {
+        "shared": [],
+        "server_only": []
+    }
+}
