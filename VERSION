@@ -39,7 +39,7 @@
 #   stable = Production ready (set manually)
 #
 # ==============================================================================
-ASE_MARKDOWN=00.00.20.00020
+ASE_MARKDOWN=00.00.21.00021
 ASE_MARKDOWN_NAME=Markdown Parser
 ASE_MARKDOWN_DESC=CommonMark/GFM + ASE DSL parser producing typed AST
 ASE_MARKDOWN_LAYER=1
