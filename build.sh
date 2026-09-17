@@ -198,8 +198,8 @@ fi
 #     Der Satz steht in prebuild_battery.sh und hat dort am 2026-09-16 die drei Clients von
 #     diesem Griff geholt. Diese Datei und tools/ase-codegen/build.sh blieben stehen — nicht aus
 #     einem Grund, sondern weil niemand sie mitgezaehlt hat.
-_ASE_BATTERY="$ASE_ROOT/core/ase-validator/scripts/prebuild/prebuild_battery.sh"
-GATES_CONF="$ASE_ROOT/core/ase-validator/scripts/prebuild/gates.conf"
+_ASE_BATTERY="$ASE_ROOT/tools/ase-forge/ase-validator/scripts/prebuild/prebuild_battery.sh"
+GATES_CONF="$ASE_ROOT/tools/ase-forge/ase-validator/scripts/prebuild/gates.conf"
 
 if [ ! -f "$GATES_CONF" ]; then
     section_line "$CROSS" "PREBUILD BLOCKED" "gates.conf MISSING"
