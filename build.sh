@@ -8,31 +8,34 @@
 
 BUILD_START_TIME=$(date +%s)
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ASE_ROOT="$( cd "$SCRIPT_DIR/../.." && pwd )"
+
 # Terminal output framework (SSOT: sha-client-web/sha-web-console)
-_CONSOLE_SH="$(dirname "${BASH_SOURCE[0]}")/../../clients/sha-client-web/public/console/bash/console.sh"
-if [ -f "$_CONSOLE_SH" ]; then
-    source "$_CONSOLE_SH"
-else
-    # Fallback: minimal output
-    NC='\033[0m'; RED='\033[31m'; GREEN='\033[32m'; CYAN='\033[36m'; YELLOW='\033[33m'
-    MAGENTA='\033[35m'; BLUE='\033[34m'; GRAY='\033[90m'; PURPLE='\033[35m'
-    MUTED='\033[90m'; TEXT='\033[37m'
-    CHECK="✓"; CROSS="✗"; HASH="#"; ARROW="→"; SKIP="○"
-    SEC_COLOR="$MUTED"
-    TERM_WIDTH=${COLUMNS:-120}
-    section_header() { echo -e "\n  ${CYAN}┌─ $1 $( printf '─%.0s' $(seq 1 $((${2:-60} - ${#1} - 4))) )${NC}"; }
-    section_line() { echo -e "  ${SEC_COLOR}│${NC} $1  $2  $3"; }
-    section_pipe() { echo -e "  ${SEC_COLOR}│${NC}"; }
-    section_detail() { echo -e "  ${SEC_COLOR}│${NC}     $1"; }
-    section_spin() { local lbl="$1"; shift; local out; out=$("$@" 2>&1); SPIN_EXIT=$?; SPIN_OUT="$out"; }
-fi
+#
+# OHNE ERSATZWEICHE, UND DAS IST DER PUNKT — 2026-09-17.
+#
+# Hier stand ein `if [ -f ] … else <eigene section_*-Funktionen>`: ein Nachbau der SSOT mit
+# eigenen ANSI-Folgen, eigener Rahmenbreite und eigener Symbolliste. Sein `section_spin` war
+# die gefaehrlichste Zeile der Datei — es fing die Ausgabe ab und setzte `SPIN_EXIT`/`SPIN_OUT`,
+# aber ohne Spinner, ohne `SPIN_MS` und ohne `section_gate`/`section_perf_*`. Damit LIEF eine
+# Prebuild-Batterie unter ihm an und zerfiel beim ersten `section_gate` in „command not found",
+# waehrend die Zahlen schon gezaehlt waren.
+#
+# **Ein Nachbau, der genug kann um zu starten und zu wenig um durchzulaufen, ist schlimmer als
+# gar keiner.** Die sieben grossen Bauskripte sourcen diese Datei unbedingt (gemessen an
+# servers/ase-server-dist/build.sh:27 und tools/ase-cli/build.sh:28) — faellt sie aus, faellt
+# der Bau, und das ist die richtige Richtung.
+source "$ASE_ROOT/clients/sha-client-web/public/console/bash/console.sh"
 
 # CPU/IO priority
 BUILD_JOBS=$(( $(nproc) - 2 ))
 [ "$BUILD_JOBS" -lt 2 ] && BUILD_JOBS=2
 BUILD_PREFIX="nice -n 10 ionice -c2 -n 7"
 
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# SCRIPT_DIR steht oben, vor dem Sourcen der Konsole — hier stand es ein ZWEITES Mal, mit
+# demselben Ausdruck. Zwei Ableitungen derselben Sache: die zweite kann still hinter der ersten
+# zuruckbleiben, sobald eine von beiden angefasst wird.
 VERSION_FILE="$SCRIPT_DIR/VERSION"
 
 # ============================================
@@ -172,15 +175,53 @@ fi
 # ============================================
 # Bis 2026-08-18 fuhr dieser Einstiegspunkt KEIN einziges Prebuild-Tor — wie fuenf weitere von
 # elf. Ein Tor, das an einer Stelle nicht laeuft, meldet dort nichts, und das sieht aus wie Ruhe.
-# Die Liste der Tore liegt genau einmal, im Aufrufer; Drift zwischen Bau-Skripten ist damit
+# Die Liste der Tore liegt genau einmal, in gates.conf; Drift zwischen Bau-Skripten ist damit
 # ausgeschlossen.
-ASE_PREBUILD_GATES="$SCRIPT_DIR/../../core/ase-validator/scripts/prebuild/run_prebuild_gates.sh"
-if [ -x "$ASE_PREBUILD_GATES" ]; then
-    if ! "$ASE_PREBUILD_GATES" "$SCRIPT_DIR"; then
-        echo "Build abgebrochen: Prebuild-Tore haben Funde gemeldet."
-        exit 1
-    fi
+#
+# ── ZWEI DEFEKTE AN EINER STELLE, BEIDE AM 2026-09-17 ─────────────────────────────────────────
+#
+# (1) FAIL-OPEN. Hier stand `if [ -x "$ASE_PREBUILD_GATES" ]; then … fi` OHNE else-Zweig. War
+#     der Laeufer nicht ausfuehrbar, lief KEIN einziges Tor, der Bau ging mit rc=0 weiter, und
+#     in der Ausgabe stand nichts darueber. **Ein Messwerkzeug, das weniger prueft als der
+#     Ernstfall, faellt nicht auf — sein Ergebnis sieht BESSER aus als die Wirklichkeit.** Das
+#     stand seit dem 2026-08-18 als WARNUNG in tools/ase-codegen/build.sh, namentlich gegen
+#     diese Datei gerichtet; gelesen hat es hier niemand.
+#
+# (2) DER LAEUFER IST DER MASCHINENKANAL, NICHT DIE ANZEIGE. `run_prebuild_gates.sh` druckt
+#     `GATE-BEGIN:`, `GATE-SCOPE:`, `GATE-COUNT:`, `GATE-INFO:` und `GATE-SUMMARY:`, damit eine
+#     SITZUNG ihren Stand auswerten kann, dazu den vollen Prosatext jedes Tores. In einem Bau,
+#     den ein MENSCH liest, laufen genau diese Zeilen ohne `│`, ohne Symbol und ohne Spalte quer
+#     durch die Rahmen.
+#
+#     > **Eine Zeile, die niemand lesen soll, darf nicht dort stehen, wo Menschen lesen.**
+#
+#     Der Satz steht in prebuild_battery.sh und hat dort am 2026-09-16 die drei Clients von
+#     diesem Griff geholt. Diese Datei und tools/ase-codegen/build.sh blieben stehen — nicht aus
+#     einem Grund, sondern weil niemand sie mitgezaehlt hat.
+_ASE_BATTERY="$ASE_ROOT/core/ase-validator/scripts/prebuild/prebuild_battery.sh"
+GATES_CONF="$ASE_ROOT/core/ase-validator/scripts/prebuild/gates.conf"
+
+if [ ! -f "$GATES_CONF" ]; then
+    section_line "$CROSS" "PREBUILD BLOCKED" "gates.conf MISSING"
+    section_detail "$GATES_CONF"
+    exit 1
 fi
+if [ ! -f "$_ASE_BATTERY" ]; then
+    section_line "$CROSS" "PREBUILD BLOCKED" "battery MISSING"
+    section_detail "$_ASE_BATTERY"
+    exit 1
+fi
+source "$_ASE_BATTERY"
+
+# DER ZUSCHNITT BLEIBT, WAS ER WAR: ALLE 27 TORE.
+#
+# Die Zeile ist ABGELESEN, nicht geschaetzt. `run_prebuild_gates.sh` ignoriert das Feld
+# `zuschnitt` in gates.conf und faehrt jedes Tor. gates.conf fuehrt 20 Tore mit `all` und 7 mit
+# `module`; `false` faehrt also 20. Eine Umstellung der DARSTELLUNG darf den Pruefumfang nicht
+# verschieben, in keine Richtung — und diese Datei hat schon einmal zu wenig geprueft.
+ASE_GATE_LOADS_MODULES=true
+
+do_pre_validation
 
 # ============================================
 # BUILD
@@ -190,33 +231,37 @@ mkdir -p "$BUILD_DIR"
 
 section_header "Build" 214
 
-# CMake configure (only if needed)
+# WERKZEUGAUSGABE LAEUFT DURCH `section_spin`, NICHT DURCH `tail` — 2026-09-17.
+#
+# Hier stand `cmake … 2>&1 | tail -5` und `ninja … 2>&1 | tail -3`. Dieselbe Klasse wie die rohe
+# Torausgabe, nur kleiner: fremde Zeilen ohne `│`, ohne Symbol, ohne Spalte, mitten in der Box —
+# und ZUGLEICH ein Informationsverlust, denn `tail -3` wirft im Fehlerfall genau den Anfang weg,
+# an dem die erste Fehlermeldung steht.
 if [ ! -f "$BUILD_DIR/build.ninja" ] || [ -n "$(find "$SCRIPT_DIR" -name 'CMakeLists.txt' -newer "$BUILD_DIR/build.ninja" 2>/dev/null | head -1)" ]; then
-    section_line "$ARROW" "CMake configure"
-    $BUILD_PREFIX cmake -B "$BUILD_DIR" -G Ninja \
+    section_spin "CMake configure" $BUILD_PREFIX cmake -B "$BUILD_DIR" -G Ninja \
         -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
         -DASE_BUILD_TESTS=ON \
         -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-        -S "$SCRIPT_DIR" 2>&1 | tail -5
-    if [ ${PIPESTATUS[0]} -ne 0 ]; then
+        -S "$SCRIPT_DIR"
+    if [ "$SPIN_EXIT" -ne 0 ]; then
         section_line "$CROSS" "CMake configure failed"
+        section_detail "$SPIN_OUT"
         exit 1
     fi
-    section_line "$CHECK" "CMake configured"
+    section_line "$CHECK" "CMake configured" "$(section_ms "$SPIN_MS")"
 else
     section_line "$SKIP" "CMake up to date"
 fi
 
-# Ninja build
-section_line "$ARROW" "Ninja build"
-$BUILD_PREFIX ninja -C "$BUILD_DIR" -j "$BUILD_JOBS" 2>&1 | tail -3
-if [ ${PIPESTATUS[0]} -ne 0 ]; then
+section_spin "Ninja build" $BUILD_PREFIX ninja -C "$BUILD_DIR" -j "$BUILD_JOBS"
+if [ "$SPIN_EXIT" -ne 0 ]; then
     section_line "$CROSS" "Build failed"
+    section_detail "$SPIN_OUT"
     exit 1
 fi
 
 NEW_BUILD=$(bump_build)
-section_line "$CHECK" "Build #${NEW_BUILD} complete"
+section_line "$CHECK" "Build #${NEW_BUILD} complete" "$(section_ms "$SPIN_MS")"
 
 # ============================================
 # TESTS
@@ -224,12 +269,25 @@ section_line "$CHECK" "Build #${NEW_BUILD} complete"
 
 if [ "$DO_TEST" = true ]; then
     section_header "Tests" 71
-    section_line "$ARROW" "Running ase-markdown-test"
-    "$BUILD_DIR/bin/ase-markdown-test" 2>&1
-    if [ $? -eq 0 ]; then
-        section_line "$CHECK" "All tests passed"
+    # DIE TESTAUSGABE IST WERKZEUGAUSGABE WIE JEDE ANDERE. Bis 2026-09-17 lief sie mit `2>&1`
+    # blank in die Konsole: doctest schreibt seinen eigenen Rahmen, und der stand mitten im
+    # Rahmen dieser Section. Bestanden zeigt die Zeile jetzt nur die Zeit, erst ein Fehlschlag
+    # zeigt den Bericht — dann aber vollstaendig, an der Boxkante gefaltet.
+    #
+    # DIE EXISTENZPRUEFUNG FEHLTE HIER GANZ: war das Binaer nicht gebaut, lief die Zeile in ein
+    # „No such file or directory" der Shell und `$?` trug 127. Der Bau brach ab und sagte
+    # „Tests failed" — eine Falschaussage ueber einen Test, der nie lief.
+    if [ ! -x "$BUILD_DIR/bin/ase-markdown-test" ]; then
+        section_line "$CROSS" "ase-markdown-test not built"
+        section_detail "$BUILD_DIR/bin/ase-markdown-test"
+        exit 1
+    fi
+    section_spin "ase-markdown-test" "$BUILD_DIR/bin/ase-markdown-test"
+    if [ "$SPIN_EXIT" -eq 0 ]; then
+        section_line "$CHECK" "All tests passed" "$(section_ms "$SPIN_MS")"
     else
-        section_line "$CROSS" "Tests failed"
+        section_line "$CROSS" "Tests failed" "$(section_ms "$SPIN_MS")"
+        section_detail "$SPIN_OUT"
         exit 1
     fi
 fi
