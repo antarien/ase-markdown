@@ -3,7 +3,7 @@
  *
  * @file        test_markdown.cpp
  * @brief       Drives the parser element by element: blocks, inline spans and the ASE extensions
- * @description Vierundzwanzig Faelle an kurzen, im Code stehenden Eingaben — je ein Element und
+ * @description Siebenundzwanzig Faelle an kurzen, im Code stehenden Eingaben — je ein Element und
  *              seine Randfaelle. Die Ergaenzung dazu ist test_compliance.cpp, das dieselben
  *              Elemente in vollstaendigen Vorlagendateien prueft; die Trennung ist Absicht und
  *              beide Haelften werden gebraucht.
@@ -25,9 +25,10 @@
  * @module      ase-markdown
  * @layer       1 (Core)
  * @category    process/validation/check
+ * @usecase     usecase:100008 - render the knowledge stock
  * @created     2026-09-01
- * @modified    2026-09-01
- * @version     1.0.0
+ * @modified    2026-10-13
+ * @version     1.1.0
  *
  * CORE INFRASTRUCTURE IMPLEMENTATION COMPLIANCE
  *
@@ -50,7 +51,7 @@
 #include <cstring>
 
 /**
- * DIE FAELLE STEHEN IM NAMENSRAUM DES GEPRUEFTEN. Hier stand `using namespace ase::markdown;` auf
+ * DIE FAELLE STEHEN IM NAMENSRAUM DES GEPRUEFTEN, nicht hinter einem `using namespace` auf
  * Dateiebene: das zieht JEDEN Namen des Moduls dorthin, wo auch doctest und die
  * Standardbibliothek stehen, und eine kuenftige Namensgleichheit traefe eine Datei, die mit der
  * Sache nichts zu tun hat.
@@ -65,12 +66,10 @@ TEST_CASE("parse returns document with root node") {
     const char input[] = "# Hello\n\nWorld";
     /* DIE LAENGE WIRD GERECHNET, NICHT GEZAEHLT — und das behebt zwei Dinge auf einmal.
      *
-     * Diese Datei fuehrte bis 2026-08-22 ZWEI Formen nebeneinander: neun Aufrufe mit einer von
-     * Hand gezaehlten Zahl (14, 13, 23, ...) und zehn mit std::strlen(input). Die zweite Form
-     * meldete der Validator (C_STRING_FUNCTIONS_FORBIDDEN, 10 Befunde) — die erste meldete
-     * niemand, obwohl sie die gefaehrlichere ist: wer die Zeichenkette darueber aendert, laesst
-     * die Zahl still veralten, und der Test prueft danach einen abgeschnittenen Text weiter,
-     * ohne rot zu werden.
+     * Eine von Hand gezaehlte Zahl ist die gefaehrlichere der beiden naheliegenden Formen: wer
+     * die Zeichenkette darueber aendert, laesst die Zahl still veralten, und der Test prueft
+     * danach einen abgeschnittenen Text weiter, ohne rot zu werden. std::strlen(input) ist die
+     * zweite, und die meldet der Validator (C_STRING_FUNCTIONS_FORBIDDEN).
      *
      * `const char input[]` statt `const char*` macht die Laenge zu einer Uebersetzungszeit-
      * Tatsache. sizeof(input) - 1 ist exakt, kann nicht veralten und braucht weder strlen noch
@@ -81,7 +80,11 @@ TEST_CASE("parse returns document with root node") {
     CHECK(doc.root->type == NODE_DOCUMENT);
     CHECK(doc.arena != nullptr);
     CHECK(doc.buffer != nullptr);
-    CHECK(doc.buffer_size == DOCUMENT_ARENA_SIZE);
+    /* DIE ARENA IST SO GROSS, WIE DIE EINGABE ES VERLANGT, nicht so gross wie eine Konstante.
+     * Geprueft wird deshalb gegen dieselbe Rechnung, die parse() fuehrt: eine hier eingetragene
+     * Zahl waere eine zweite Quelle fuer denselben Wert. */
+    CHECK(doc.buffer_size == document_arena_size(static_cast<uint32_t>(sizeof(input) - 1)));
+    CHECK(doc.arena_exhausted == 0);
 
     free_document(doc);
     CHECK(doc.root == nullptr);
@@ -128,6 +131,104 @@ TEST_CASE("alloc_string duplicates into arena") {
     CHECK(copy[0] == 'H');
     CHECK(copy[10] == 'd');
     CHECK(copy[11] == '\0');
+
+    free_document(doc);
+}
+
+TEST_CASE("arena size follows the input and stops at the ceiling") {
+    /* Die drei Konstanten tragen die Rechnung, nicht der Test: er prueft die FORM der Rechnung
+     * (Boden, Vielfaches, Deckel), damit eine spaetere Anpassung der Werte hier nichts bricht,
+     * eine Anpassung der Rechnung aber schon. */
+    CHECK(document_arena_size(0) == DOCUMENT_ARENA_FLOOR);
+    CHECK(document_arena_size(1000) == 1000 * DOCUMENT_ARENA_FACTOR + DOCUMENT_ARENA_FLOOR);
+    CHECK(document_arena_size(DOCUMENT_ARENA_CEILING) == DOCUMENT_ARENA_CEILING);
+
+    CHECK(document_arena_grown(DOCUMENT_ARENA_FLOOR) == 2 * DOCUMENT_ARENA_FLOOR);
+    CHECK(document_arena_grown(DOCUMENT_ARENA_CEILING / 2) == DOCUMENT_ARENA_CEILING);
+    CHECK(document_arena_grown(DOCUMENT_ARENA_CEILING) == DOCUMENT_ARENA_CEILING);
+}
+
+TEST_CASE("a full arena ends a pass instead of crashing it") {
+    /* WARUM DIE ARENA HIER ABSICHTLICH VOLL IST: ein Pass, der aus einer vollen Arena nullptr
+     * bekommt und hindurchschreibt, stirbt mitten im Oeffnen einer Datei — mit SIGSEGV, ohne
+     * Meldung, an einer Stelle, die wie ein Darstellungsfehler aussieht. Dieser Fall laeuft genau
+     * diesen Zweig. Die Eingabe bleibt winzig, weil nicht ihre GROESSE den Fall macht, sondern
+     * der leere Rest der Arena. */
+    const char input[] = "plain text";
+    auto doc = parse(input, static_cast<uint32_t>(sizeof(input) - 1));
+    REQUIRE(doc.root != nullptr);
+    CHECK(doc.arena_exhausted == 0);
+
+    // Ein Textknoten, der ein Symbolmuster traegt und noch ungeteilt ist.
+    auto* para = alloc_node(doc, NODE_PARAGRAPH);
+    auto* txt  = alloc_node(doc, NODE_TEXT);
+    REQUIRE(para != nullptr);
+    REQUIRE(txt != nullptr);
+    const char payload[] = "(nf-fa-cubes) tail";
+    txt->text = alloc_string(doc, payload, static_cast<uint32_t>(sizeof(payload) - 1));
+    REQUIRE(txt->text != nullptr);
+    txt->text_len = static_cast<uint32_t>(sizeof(payload) - 1);
+    append_child(para, txt);
+    append_child(doc.root, para);
+
+    // Jeder weitere Knoten nimmt Platz, bis keiner mehr hineingeht.
+    uint32_t filled = 0;
+    while (alloc_node(doc, NODE_TEXT) != nullptr) filled++;
+    CHECK(filled > 0);                 // die Fuellung hat wirklich stattgefunden
+    CHECK(doc.arena_exhausted == 1);
+
+    doc.arena_exhausted = 0;           // ab hier zaehlt nur, was der Pass selbst meldet
+    pass_icons(doc);
+
+    CHECK(doc.arena_exhausted == 1);   // der Pass MELDET den vollen Zustand
+    CHECK(txt->type == NODE_TEXT);     // und laesst den Knoten unberuehrt
+    CHECK(txt->text_len == static_cast<uint32_t>(sizeof(payload) - 1));
+
+    free_document(doc);
+}
+
+TEST_CASE("a document past the first arena guess still parses whole") {
+    /* DER TEUERSTE DOKUMENTTYP IST DER TABELLENSCHWERE, nicht der laengste: jede Zelle ist ein
+     * eigener Knoten mit eigenem Textstueck, und jedes Symbol darin teilt dieses Stueck noch
+     * einmal. Die Eingabe hier wird deshalb aus Tabellenzeilen MIT Symbol gebaut, nicht aus
+     * Prosa — sie steht fuer die Dokumente, an denen eine feste Arena zuerst zerbricht.
+     *
+     * Erzeugt statt kopiert: eine echte Datei als Vorlage hereinzuholen waere eine zweite
+     * Fassung desselben Textes an einem zweiten Ort. */
+    constexpr uint32_t Capacity = 262144;
+    char big[Capacity];
+    uint32_t len = 0;
+
+    auto put = [&](const char* text, uint32_t count) {
+        for (uint32_t i = 0; i < count && len < Capacity; ++i) big[len++] = text[i];
+    };
+
+    const char head[] = "# (nf-fa-cubes) Big\n\n| a | b | c |\n| - | - | - |\n";
+    const char row[]  = "| (nf-fa-tag) alpha | beta gamma | delta epsilon |\n";
+    put(head, static_cast<uint32_t>(sizeof(head) - 1));
+    while (len + static_cast<uint32_t>(sizeof(row) - 1) < Capacity) {
+        put(row, static_cast<uint32_t>(sizeof(row) - 1));
+    }
+
+    auto doc = parse(big, len);
+    MESSAGE("input " << len << " bytes, arena " << doc.buffer_size
+                     << " bytes, first guess " << document_arena_size(len));
+
+    CHECK(doc.root != nullptr);
+    CHECK(doc.arena_exhausted == 0);                          // der Baum ist VOLLSTAENDIG
+    CHECK(doc.buffer_size >= document_arena_size(len));       // gewachsen, falls die Schaetzung zu klein war
+    CHECK(doc.buffer_size <= DOCUMENT_ARENA_CEILING);
+
+    // Der Knoten, an dessen Anlage eine volle Arena scheitert, steht in der Ueberschrift.
+    auto* heading = doc.root->first_child;
+    REQUIRE(heading != nullptr);
+    bool found_icon = false;
+    Node* child = heading->first_child;
+    while (child) {
+        if (child->type == NODE_NERDFONT_ICON) found_icon = true;
+        child = child->next_sibling;
+    }
+    CHECK(found_icon);
 
     free_document(doc);
 }

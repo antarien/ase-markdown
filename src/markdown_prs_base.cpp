@@ -17,9 +17,10 @@
  * @module      ase-markdown
  * @layer       1 (Core)
  * @category    process/computation/algorithm
+ * @usecase     usecase:100008 - render the knowledge stock
  *
  * @created     2026-04-12
- * @modified    2026-04-13
+ * @modified    2026-10-13
  * @version     00.00.02.00002 [poc]
  *
  * ==============================================================================
@@ -136,11 +137,14 @@ Node* convert_node(Document& doc, cmark_node* cnode) {
     if (node == nullptr) return nullptr;
 
     // Literal text payload (inline code, code blocks, text nodes, …).
+    // The length follows the COPY, not the source: a full arena hands back
+    // nullptr here, and a node that claims n characters it does not hold is
+    // worse than a node that claims none - every reader trusts text_len.
     const char* literal = cmark_node_get_literal(cnode);
     if (literal != nullptr) {
         uint32_t len = cstr_len(literal);
         node->text = alloc_string(doc, literal, len);
-        node->text_len = len;
+        node->text_len = (node->text != nullptr) ? len : 0;
     }
 
     if (type == NODE_HEADING) {
@@ -184,19 +188,20 @@ Node* convert_node(Document& doc, cmark_node* cnode) {
     return node;
 }
 
-}  // namespace
-
-Document parse(const char* input, uint32_t len, ParseOptions opts) {
+// One parse against an arena of exactly arena_size bytes. Whether that arena
+// held the whole document is reported in doc.arena_exhausted, and the public
+// parse() below is what acts on the report.
+Document parse_once(const char* input, uint32_t len, ParseOptions opts, uint32_t arena_size) {
     // Document holds raw buffer / arena pointers (POD-friendly). Ownership is
     // transferred from local std::unique_ptr instances via release(), so no
     // raw new/delete or malloc/free appears in this translation unit. The
     // pointers are reclaimed in free_document() through unique_ptr re-adoption.
-    auto buffer_owner = std::make_unique<char[]>(DOCUMENT_ARENA_SIZE);
+    auto buffer_owner = std::make_unique<char[]>(arena_size);
     auto arena_owner  = std::make_unique<ase::alloc::Arena>(buffer_owner.get(),
-                                                            DOCUMENT_ARENA_SIZE);
+                                                            arena_size);
 
     Document doc{};
-    doc.buffer_size = DOCUMENT_ARENA_SIZE;
+    doc.buffer_size = arena_size;
     doc.buffer = buffer_owner.release();
     doc.arena  = arena_owner.release();
 
@@ -258,6 +263,29 @@ Document parse(const char* input, uint32_t len, ParseOptions opts) {
     pass_inline_extensions(doc);
 
     return doc;
+}
+
+}  // namespace
+
+Document parse(const char* input, uint32_t len, ParseOptions opts) {
+    // THE ARENA GROWS UNTIL THE DOCUMENT FITS, and the fit is measured rather
+    // than assumed: a pass that found the arena full says so through
+    // arena_exhausted, and the only answer that keeps the WHOLE document is to
+    // run the parse again against twice the room. A second cmark pass over a few
+    // hundred kilobytes is cheap next to the alternative, because a tree that
+    // stops mid-document is indistinguishable from a short document.
+    //
+    // At the ceiling the loop stops and hands back the partial tree WITH the
+    // flag still set. That is the one case a renderer has to speak about, and it
+    // is the reason the flag survives into the returned Document.
+    uint32_t arena_size = document_arena_size(len);
+    for (;;) {
+        Document doc = parse_once(input, len, opts, arena_size);
+        if (doc.arena_exhausted == 0) return doc;
+        if (arena_size >= DOCUMENT_ARENA_CEILING) return doc;
+        free_document(doc);
+        arena_size = document_arena_grown(arena_size);
+    }
 }
 
 void free_document(Document& doc) {

@@ -21,9 +21,10 @@
  * @module      ase-markdown
  * @layer       1 (Core)
  * @category    process/computation/algorithm
+ * @usecase     usecase:100008 - render the knowledge stock
  *
  * @created     2026-04-12
- * @modified    2026-08-20
+ * @modified    2026-10-13
  * @version     1.0.0
  *
  * ==============================================================================
@@ -93,16 +94,25 @@ void process_math_in_text(Node* node, Document& doc) {
 
             if (end < len && end > start) {
                 // Text before math
+                // A full arena leaves through `return`: the fragments live in
+                // local pointers and `node` stays untouched until the chain is
+                // complete, so the run keeps its literal "$...$" instead of
+                // becoming a formula. Writing through the nullptr instead would
+                // be a SIGSEGV while a file is being opened.
                 if (pos > last_end) {
                     auto* txt = alloc_node(doc, NODE_TEXT);
+                    if (txt == nullptr) return;
                     txt->text = alloc_string(doc, text + last_end, pos - last_end);
+                    if (txt->text == nullptr) return;
                     txt->text_len = pos - last_end;
                     append(txt);
                 }
 
                 // Math node
                 auto* math = alloc_node(doc, is_display ? NODE_MATH_DISPLAY : NODE_MATH_INLINE);
+                if (math == nullptr) return;
                 math->text = alloc_string(doc, text + start, end - start);
+                if (math->text == nullptr) return;
                 math->text_len = end - start;
                 append(math);
 
@@ -119,7 +129,9 @@ void process_math_in_text(Node* node, Document& doc) {
     // Remaining text
     if (last_end < len) {
         auto* txt = alloc_node(doc, NODE_TEXT);
+        if (txt == nullptr) return;
         txt->text = alloc_string(doc, text + last_end, len - last_end);
+        if (txt->text == nullptr) return;
         txt->text_len = len - last_end;
         append(txt);
     }

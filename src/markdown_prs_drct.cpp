@@ -13,6 +13,7 @@
  * @module      ase-markdown
  * @layer       1 (Core)
  * @category    process/computation/algorithm
+ * @usecase     usecase:100008 - render the knowledge stock
  *
  * @created     2026-04-12
  * @modified    2026-04-12
@@ -89,7 +90,8 @@ uint16_t parse_attrs(const char* attr_str, uint32_t attr_len, Document& doc, Att
         if (attr_str[i] == '=' || attr_str[i] == ' ') max_count++;
     }
 
-    out = static_cast<Attr*>(doc.arena->allocate(max_count * sizeof(Attr)));
+    out = alloc_attrs(doc, max_count);
+    if (out == nullptr) return 0;
     uint16_t actual = 0;
     uint32_t pos = 0;
 
@@ -102,7 +104,11 @@ uint16_t parse_attrs(const char* attr_str, uint32_t attr_len, Document& doc, Att
         uint32_t key_len = pos - key_start;
         if (key_len == 0) break;
 
+        // A key is the one part of an attribute that cannot be absent: every
+        // reader looks the attribute up BY it. Without room for the copy the
+        // scan ends and hands back the attributes it already holds.
         char* key = alloc_string(doc, attr_str + key_start, key_len);
+        if (key == nullptr) break;
 
         if (pos < attr_len && attr_str[pos] == '=') {
             pos++;
@@ -217,8 +223,14 @@ void parse_children(Document& doc, Node* parent, const char* content, uint32_t c
 
         uint32_t ns, ne, as, ae;
         if (is_leaf_directive(line, line_len, ns, ne, as, ae)) {
+            // A full arena ends the walk here: the children built so far stay
+            // attached to parent, the rest of the content is not built, and the
+            // Document carries arena_exhausted so parse() can run again with
+            // more room. Writing through the nullptr would end the process.
             Node* child = alloc_node(doc, NODE_LEAF_DIRECTIVE);
+            if (child == nullptr) return;
             child->directive_name = alloc_string(doc, line + ns, ne - ns);
+            if (child->directive_name == nullptr) return;
 
             if (as > 0 && ae > as) {
                 child->attr_count = parse_attrs(line + as, ae - as, doc, child->attrs);
@@ -315,9 +327,12 @@ void parse_children(Document& doc, Node* parent, const char* content, uint32_t c
     }
 }
 
+// Returns nullptr when the arena is full — every caller has to read that.
 Node* build_directive_node(Document& doc, const DirectiveData& dd) {
     Node* node = alloc_node(doc, dd.is_block ? NODE_BLOCK_DIRECTIVE : NODE_LEAF_DIRECTIVE);
+    if (node == nullptr) return nullptr;
     node->directive_name = alloc_string(doc, dd.name.c_str(), static_cast<uint32_t>(dd.name.size()));
+    if (node->directive_name == nullptr) return nullptr;
 
     if (!dd.attrs_str.empty()) {
         node->attr_count = parse_attrs(dd.attrs_str.c_str(), static_cast<uint32_t>(dd.attrs_str.size()), doc, node->attrs);
@@ -327,8 +342,12 @@ Node* build_directive_node(Document& doc, const DirectiveData& dd) {
         parse_children(doc, node, dd.content.c_str(), static_cast<uint32_t>(dd.content.size()));
 
         if (!node->first_child) {
+            // The fallback text child is the last thing this node wants, so a
+            // full arena hands back the directive without it rather than nothing.
             Node* text_node = alloc_node(doc, NODE_TEXT);
+            if (text_node == nullptr) return node;
             text_node->text = alloc_string(doc, dd.content.c_str(), static_cast<uint32_t>(dd.content.size()));
+            if (text_node->text == nullptr) return node;
             text_node->text_len = static_cast<uint32_t>(dd.content.size());
             append_child(node, text_node);
         }
@@ -363,6 +382,10 @@ void replace_markers_in_children(Document& doc, Node* parent) {
 
                 if (idx >= 0 && idx < static_cast<int>(g_directives.size())) {
                     Node* dir_node = build_directive_node(doc, g_directives[idx]);
+                    // No node means a full arena. The marker child stays where
+                    // it is, which renders as the HTML comment it already was,
+                    // and the walk ends - the tree keeps every node it has.
+                    if (dir_node == nullptr) return;
 
                     dir_node->next_sibling = next;
                     dir_node->parent = parent;
@@ -559,13 +582,18 @@ void process_inline_extensions(Node* node, Document& doc) {
         last_new = n;
     };
 
-    auto emit_text_before = [&](uint32_t end) {
-        if (end > last_end) {
-            auto* txt = alloc_node(doc, NODE_TEXT);
-            txt->text = alloc_string(doc, text + last_end, end - last_end);
-            txt->text_len = end - last_end;
-            append_node(txt);
-        }
+    // Returns false when the arena is full. The caller cannot ignore that: it
+    // has to leave the split, because `node` is only rewritten once the whole
+    // fragment chain stands and a half chain would drop text from the document.
+    auto emit_text_before = [&](uint32_t end) -> bool {
+        if (end <= last_end) return true;
+        auto* txt = alloc_node(doc, NODE_TEXT);
+        if (txt == nullptr) return false;
+        txt->text = alloc_string(doc, text + last_end, end - last_end);
+        if (txt->text == nullptr) return false;
+        txt->text_len = end - last_end;
+        append_node(txt);
+        return true;
     };
 
     while (pos < len) {
@@ -575,9 +603,11 @@ void process_inline_extensions(Node* node, Document& doc) {
             uint32_t end = start;
             while (end + 1 < len && !(text[end] == ']' && text[end + 1] == ']')) end++;
             if (end + 1 < len) {
-                emit_text_before(pos);
+                if (!emit_text_before(pos)) return;
                 auto* wiki = alloc_node(doc, NODE_WIKI_LINK);
+                if (wiki == nullptr) return;
                 wiki->text = alloc_string(doc, text + start, end - start);
+                if (wiki->text == nullptr) return;
                 wiki->text_len = end - start;
                 append_node(wiki);
                 last_end = end + 2;
@@ -592,9 +622,11 @@ void process_inline_extensions(Node* node, Document& doc) {
             uint32_t end = start;
             while (end + 1 < len && !(text[end] == '}' && text[end + 1] == '}')) end++;
             if (end + 1 < len) {
-                emit_text_before(pos);
+                if (!emit_text_before(pos)) return;
                 auto* gloss = alloc_node(doc, NODE_GLOSSARY_TERM);
+                if (gloss == nullptr) return;
                 gloss->text = alloc_string(doc, text + start, end - start);
+                if (gloss->text == nullptr) return;
                 gloss->text_len = end - start;
                 append_node(gloss);
                 last_end = end + 2;
@@ -610,13 +642,16 @@ void process_inline_extensions(Node* node, Document& doc) {
             uint32_t end = start;
             while (end < len && text[end] != '}') end++;
             if (end < len) {
-                emit_text_before(pos);
+                if (!emit_text_before(pos)) return;
                 auto* xref = alloc_node(doc, NODE_CROSS_REF);
+                if (xref == nullptr) return;
                 uint32_t pipe = start;
                 while (pipe < end && text[pipe] != '|') pipe++;
                 xref->url = alloc_string(doc, text + start, pipe - start);
+                if (xref->url == nullptr) return;
                 if (pipe < end) {
                     xref->text = alloc_string(doc, text + pipe + 1, end - pipe - 1);
+                    if (xref->text == nullptr) return;
                     xref->text_len = end - pipe - 1;
                 } else {
                     xref->text = xref->url;
@@ -634,8 +669,9 @@ void process_inline_extensions(Node* node, Document& doc) {
             text[pos + 2] == 'e' && text[pos + 3] == 'r' && text[pos + 4] == 's' &&
             text[pos + 5] == 'i' && text[pos + 6] == 'o' && text[pos + 7] == 'n' &&
             text[pos + 8] == '}') {
-            emit_text_before(pos);
+            if (!emit_text_before(pos)) return;
             auto* ver = alloc_node(doc, NODE_VERSION_INSERT);
+            if (ver == nullptr) return;
             append_node(ver);
             last_end = pos + 9;
             pos = last_end;
@@ -653,12 +689,16 @@ void process_inline_extensions(Node* node, Document& doc) {
                 uint32_t brace_end = brace_start;
                 while (brace_end < len && text[brace_end] != '}') brace_end++;
                 if (brace_end < len) {
-                    emit_text_before(pos);
+                    if (!emit_text_before(pos)) return;
                     auto* tip = alloc_node(doc, NODE_TEXT_DIRECTIVE);
+                    if (tip == nullptr) return;
                     tip->directive_name = alloc_string(doc, "tip", 3);
+                    if (tip->directive_name == nullptr) return;
                     tip->text = alloc_string(doc, text + bracket_start, bracket_end - bracket_start);
+                    if (tip->text == nullptr) return;
                     tip->text_len = bracket_end - bracket_start;
                     tip->title = alloc_string(doc, text + brace_start, brace_end - brace_start);
+                    if (tip->title == nullptr) return;
                     append_node(tip);
                     last_end = brace_end + 1;
                     pos = last_end;
@@ -674,7 +714,9 @@ void process_inline_extensions(Node* node, Document& doc) {
 
     if (last_end < len) {
         auto* txt = alloc_node(doc, NODE_TEXT);
+        if (txt == nullptr) return;
         txt->text = alloc_string(doc, text + last_end, len - last_end);
+        if (txt->text == nullptr) return;
         txt->text_len = len - last_end;
         append_node(txt);
     }

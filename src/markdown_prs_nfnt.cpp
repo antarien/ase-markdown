@@ -19,9 +19,10 @@
  * @module      ase-markdown
  * @layer       1 (Core)
  * @category    process/computation/algorithm
+ * @usecase     usecase:100008 - render the knowledge stock
  *
  * @created     2026-04-12
- * @modified    2026-08-20
+ * @modified    2026-10-13
  * @version     1.0.0
  *
  * ==============================================================================
@@ -83,6 +84,13 @@ void process_icons(Node* node, Document& doc) {
     // Only split text nodes
     if (node->type != NODE_TEXT || !node->text || node->text_len == 0) return;
 
+    // WHY A FULL ARENA LEAVES THROUGH `return` AND NOT THROUGH A HALF SPLIT:
+    // every fragment below is held in local pointers, and `node` itself stays
+    // untouched until the whole chain stands. An early return therefore leaves
+    // the document exactly as it was - the run keeps its "(nf-fa-name)" as
+    // literal text instead of becoming an icon, which reads oddly and renders
+    // correctly. The alternative, writing through the nullptr that a full arena
+    // hands back, is a SIGSEGV in the middle of opening a file.
     const char* text = node->text;
     uint32_t len = node->text_len;
     uint32_t pos = 0;
@@ -97,7 +105,9 @@ void process_icons(Node* node, Document& doc) {
                 // Text before icon
                 if (pos > last_end) {
                     auto* txt = alloc_node(doc, NODE_TEXT);
+                    if (txt == nullptr) return;
                     txt->text = alloc_string(doc, text + last_end, pos - last_end);
+                    if (txt->text == nullptr) return;
                     txt->text_len = pos - last_end;
                     if (!first_new) first_new = txt; else last_new->next_sibling = txt;
                     last_new = txt;
@@ -105,7 +115,9 @@ void process_icons(Node* node, Document& doc) {
 
                 // Icon node (nf-fa-name) → text = "nf-fa-name"
                 auto* icon = alloc_node(doc, NODE_NERDFONT_ICON);
+                if (icon == nullptr) return;
                 icon->text = alloc_string(doc, text + pos + 1, close - pos - 1);
+                if (icon->text == nullptr) return;
                 icon->text_len = close - pos - 1;
                 if (!first_new) first_new = icon; else last_new->next_sibling = icon;
                 last_new = icon;
@@ -123,7 +135,9 @@ void process_icons(Node* node, Document& doc) {
     // Remaining text after last icon
     if (last_end < len) {
         auto* txt = alloc_node(doc, NODE_TEXT);
+        if (txt == nullptr) return;
         txt->text = alloc_string(doc, text + last_end, len - last_end);
+        if (txt->text == nullptr) return;
         txt->text_len = len - last_end;
         last_new->next_sibling = txt;
         last_new = txt;
