@@ -1,7 +1,5 @@
 /*
- * ==============================================================================
  * ASE CORE INFRASTRUCTURE IMPLEMENTATION
- * ==============================================================================
  *
  * @file        debug_demo.cpp
  * @brief       Debug stat dump for a real document — CLI tool, target ase-markdown-debug
@@ -12,9 +10,7 @@
  *              directives like nested ::tab and ::panel under :::tabs / :::accordion
  *              survive parsing.
  *
- *              THE OUTPUT IS THE PRODUCT, NOT A LOG, AND IT STILL IS - what changed on
- *              2026-08-20 is the primitive underneath. This file argued that its nine
- *              printf calls had to stay, on two grounds, and both were sound:
+ *              THE OUTPUT IS THE PRODUCT, NOT A LOG. Two grounds keep it off ase-log:
  *                (1) `ase-markdown-debug file.md` exists in order to print those numbers
  *                    to a human or into a pipe. Through ase-log they would gain a level
  *                    prefix and a timestamp, land in the log channel, and stop being
@@ -22,33 +18,31 @@
  *                (2) ase-markdown binds ase-alloc, ase-containers and ase-utils. Pulling
  *                    in ase-log for a debug CLI would put a fourth edge into a
  *                    WASM-capable core module.
- *              Neither was ever an argument FOR printf, only against ase-log - and the
- *              third option was in the tree the whole time: tools/ase-cli/src/main.cpp
- *              emits its prompt and banner through one fwrite for exactly this reason
- *              (the "Raw stdout write for the cooked-mode fallback" block), and
- *              cli_dispatch.cpp builds emit_out / emit_err on it. Of the rules,
- *              printf, fprintf, sprintf and the three std streams each have one; fwrite
- *              has none. The nine calls now go through write_out / write_err below:
- *              stdout six times (banner, node-count table, directive list), stderr three
- *              times (usage, unreadable input, null root). No log dependency was added,
- *              nothing about the output changed, and the module keeps its three edges.
+ *              The primitive underneath is one fwrite, the form tools/ase-cli/src/main.cpp
+ *              uses for its prompt and banner (the "Raw stdout write for the cooked-mode
+ *              fallback" block) and cli_dispatch.cpp builds emit_out / emit_err on. Every
+ *              line goes through write_out / write_err below: stdout for the banner, the
+ *              node-count table and the directive list, stderr for usage, unreadable input
+ *              and a null root.
  *
- *              ONE FORMATTING DETAIL MOVED WITH THEM. printf's "%-20s" left-aligned the
- *              node-type name in a 20-column field; padded_right below does the same and
- *              likewise lets a longer name push the column rather than truncating it -
- *              the longest name in use is NODE_THEMATIC_BREAK at 14 characters.
+ *              padded_right left-aligns the node-type name in a 20-column field and lets a
+ *              longer name push the column rather than truncating it - the longest name in
+ *              use is NODE_THEMATIC_BREAK at 14 characters.
+ *
+ * META
  *
  * @module      ase-markdown
  * @layer       1 (Core)
  * @category    process/computation/algorithm
- *
+ * @design      DSGN_016
+ * @usecase     usecase:101396 - assure engine component quality
+ * @actor       Engine Unit Test (ENGUTEST)
  * @created     2026-04-13
- * @modified    2026-08-20
- * @version     2.0.0
+ * @modified    2026-11-05
+ * @version     2.0.1
  *
- * ==============================================================================
  * CORE INFRASTRUCTURE IMPLEMENTATION COMPLIANCE
- * ==============================================================================
+ *
  * [ ] NOT an ECS System implementation
  * [ ] Layer dependencies correct (L0: no ASE deps, L1: L0 only)
  * [ ] Own header included FIRST
@@ -61,7 +55,6 @@
  * [ ] No inline implementations of template specializations here
  * [ ] Platform-specific code isolated and documented
  * [ ] Performance-critical code profiled and optimized
- * ==============================================================================
  */
 
 #include <ase/markdown/markdown.hpp>
