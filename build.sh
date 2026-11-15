@@ -3,6 +3,10 @@
 # ASE Markdown Parser — Layer 1 Core
 # Professional Build Script with Ninja
 # ==============================================================================
+#
+# Copyright (c) Jan Ohlmann. All rights reserved.
+# Licensed to ANTARES SIMULACAO LTDA. Use is governed by LICENSE.md and PJV.md in this repository.
+# SPDX-License-Identifier: LicenseRef-ASE-LIC
 
 # NOTE: Do NOT use "set -e" here. This script handles errors explicitly.
 
